@@ -135,7 +135,7 @@ df_binned_prop_year <- function( ii, df_in, n_bins, siz_var, rsp_var, years ){
 }
 
 surv_yrs       <- data.frame( Year = surv$Year %>% unique %>% sort )
-surv_bin_yrs   <- lapply( 1:13, df_binned_prop_year, and_ger, 20, 
+surv_bin_yrs   <- lapply( 1:41, df_binned_prop_year, and_ger, 20, 
                           logsize_t0, survives_tplus1, surv_yrs )
 
 surv_yr_pan_df <- bind_rows( surv_bin_yrs ) %>% 
@@ -310,10 +310,10 @@ surv_yr_plots <- function( i ){
   return(temp_plot)
 }
 length(surv_bin_yrs)
-surv_yrs <- lapply( 1:13, surv_yr_plots )
+surv_yrs <- lapply( 1:41, surv_yr_plots )
 surv_years <- wrap_plots( surv_yrs ) + plot_layout( nrow = 4 )
 
-#only shows 13 plots, need 38, but replacing 13 to 38 gives "out of bounds" error
+#only shows 13 plots, need 41, but replacing 13 to 41 gives "out of bounds" error
 
 surv_years
 
