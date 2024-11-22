@@ -352,7 +352,7 @@ grow_yr_plots <- function( i ){
   
   return(temp_plot)
 }
-grow_yrs <- lapply( 1997:2009, grow_yr_plots )
+grow_yrs <- lapply( 32:70, grow_yr_plots )
 grow_years <- wrap_plots( grow_yrs ) + plot_layout( nrow = 4 )
 
 # png( 'results/Bou_gra_yr/grow_pred.png', width = 10, height = 6, units = "in", res = 150 )
