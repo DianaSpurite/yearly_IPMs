@@ -4,6 +4,8 @@
 #By Diana Spurite
 #diana.spurite@posteo.de
 
+
+library(MuMIn) 
 #library( bblme ) # ver 1.0.25
 library( ggplot2 ) # ver 3.4.4
 library( htmlTable ) # ver 2.4.2
@@ -14,6 +16,7 @@ library( patchwork ) # ver 1.1.2
 library( readxl ) # ver 1.4.2
 library( tidyverse ) # ver 2.0.0
 library( writexl ) # ver 1.4.2
+library(boot)
 
 and_ger            <- read.csv( "ks_ange/ks_ange.csv" )
 
@@ -79,10 +82,13 @@ and_ger_long$Year_fac <- as.factor( and_ger_long$Year )
 size_labs <- c( "at time t0", "at time t1" )
 names(size_labs) <- c( "logsize_t0", "logsize_t1" )
 
+print(head(and_ger_long))
 
 plot <- and_ger_long %>% ggplot( aes( x = size_value ) ) +
   geom_histogram( binwidth = 1 ) +
-  facet_grid( Year_fac ~ size, 
+  facet_wrap( ~ Year_fac,
+              ncol = 4, 
+            #  ~ size, 
               scales = "free_y",
               labeller = labeller( size = size_labs ) ) +
   labs( x = "log( size )",
@@ -135,7 +141,7 @@ df_binned_prop_year <- function( ii, df_in, n_bins, siz_var, rsp_var, years ){
 }
 
 surv_yrs       <- data.frame( Year = surv$Year %>% unique %>% sort )
-surv_bin_yrs   <- lapply( 1:41, df_binned_prop_year, and_ger, 20, 
+surv_bin_yrs   <- lapply( 1:39, df_binned_prop_year, and_ger, 20, 
                           logsize_t0, survives_tplus1, surv_yrs )
 
 surv_yr_pan_df <- bind_rows( surv_bin_yrs ) %>% 
@@ -145,7 +151,7 @@ surv_yr_pan_df <- bind_rows( surv_bin_yrs ) %>%
   mutate( year       = as.integer( Year - 31  ) )
 
 
-plot <- ggplot( data   = surv_yr_pan_df, 
+surv_yr_plot <- ggplot( data   = surv_yr_pan_df, 
                 aes( x = logsize_t0, 
                      y = survives_tplus1 ) ) +
   geom_point( alpha = 0.5,
@@ -154,11 +160,12 @@ plot <- ggplot( data   = surv_yr_pan_df,
               color = 'red' ) +
   scale_y_continuous( breaks = c( 0.1, 0.5, 0.9 ) ) +
   # split in panels
-  facet_wrap( .~ transition, nrow = 4 ) +
-  theme_bw( ) +
-  theme( axis.text = element_text( size = 8 ),
-         title     = element_text( size = 10 ),
-         strip.text.y  = element_text( size   = 5,
+  facet_wrap( .~ transition, 
+              nrow = 4 ) +
+              theme_bw( ) +
+              theme( axis.text = element_text( size = 8 ),
+              title         = element_text( size = 10 ),
+              strip.text.y  = element_text( size   = 5,
                                        margin = margin( 0.5, 0.5, 0.5, 0.5,
                                                         'mm' ) ),
          strip.text.x  = element_text( size   = 5,
@@ -169,13 +176,16 @@ plot <- ggplot( data   = surv_yr_pan_df,
   labs( x = expression( 'log(size)'[t0] ),
         y = expression( 'Survival to time t1' ) )
 
+
 # reoccurring warning message (in all the exercises):
 # "Removed 95 rows containing missing values or values outside the scale range (`geom_point()`)."
 
 
-ggsave(filename = "ks_ange/results/survival_binned_yr.png", plot = plot)
+ggsave(filename = "ks_ange/results/survival_binned_yr.png", plot = surv_yr_plot,                            # The plot object
+       width = 10,                              
+       height = 6,                              
+       dpi = 300)                           
 
-#code works, but the graphs are not displayed, but are saved in the "results" folder. Dimenstions bad.
 
 
 # 3. Growth data by year #---------------------------------------------
@@ -194,14 +204,15 @@ plot <-  ggplot(data  = grow_yr_pan_df, aes( x = logsize_t0, y = log( size_tplus
               size  = 0.7,
               color = 'red' ) +
   # split in panels
-  facet_wrap( .~ transition, nrow = 4 ) +
-  theme_bw( ) +
-  theme( axis.text     = element_text( size   = 8 ),
-         title         = element_text( size   = 10 ),
-         strip.text.y  = element_text( size   = 8,
+  facet_wrap( .~ transition,
+            nrow = 4 ) +
+            theme_bw( ) +
+            theme( axis.text     = element_text( size   = 8 ),
+            title         = element_text( size   = 10 ),
+            strip.text.y  = element_text( size   = 8,
                                        margin = margin( 0.5, 0.5, 0.5, 0.5,
                                                         'mm' ) ),
-         strip.text.x  = element_text( size   = 8,
+            strip.text.x  = element_text( size   = 8,
                                        margin = margin( 0.5, 0.5, 0.5, 0.5,
                                                         'mm' ) ),
          strip.switch.pad.wrap = unit( '0.5', unit = 'mm' ),
@@ -238,7 +249,8 @@ plot <- repr_yr %>%
               pch   = 16,
               size  = 1,
               color = 'red' ) +
-  facet_wrap( .~ Year, nrow = 4 ) +
+  facet_wrap( .~ Year, 
+              nrow = 4 ) +
   theme_bw( ) +
   theme( axis.text     = element_text( size   = 8 ),
          title         = element_text( size   = 10 ),
@@ -267,14 +279,16 @@ plot <- recSize %>% ggplot( aes( x = logsize_t0 ) ) +
   geom_histogram( ) +
   facet_wrap( Year_fac ~ ., 
               scales = "free_y",
-              nrow = 4 ) +
+              ncol = 4 ) +
   labs( x = expression('log( size )'[t0]),
         y = "Frequency" )
 
+
+
 ggsave(filename = "ks_ange/results/recruit_histograms.png", plot = plot)
 
-# the plots so far have not-so-very-nice dimensions, 
-# but recycling "width = 10, height = 6, units = "in", res = 150" doesn't do any good for ggsave
+# Check if there are any records for Year 33
+table(recSize$Year)
 
 # 6. Fitting vital rate models
 ##### Survival model####-----------------------
@@ -282,10 +296,10 @@ ggsave(filename = "ks_ange/results/recruit_histograms.png", plot = plot)
 surv_df      <- surv %>% 
   mutate( logsize_t0 = log( basalArea_genet ) )
 
-surv_mod_yr <- glmer( survives_tplus1 ~ logsize_t0 + ( logsize_t0 | Year ), data = surv_df, family = binomial )
+su_mod_yr <- glmer( survives_tplus1 ~ logsize_t0 + ( logsize_t0 | Year ), data = surv_df, family = binomial )
 
-ranef_su <- data.frame( coef( surv_mod_yr )[1] )
-years_v  <- c( 32:69 )
+ranef_su <- data.frame( coef( su_mod_yr )[1] )
+years_v  <- c( 32:70 )
 
 surv_yr_plots <- function( i ){
   surv_temp   <- as.data.frame( surv_bin_yrs[[i]] )
@@ -293,35 +307,39 @@ surv_yr_plots <- function( i ){
                       max( surv_temp$logsize_t0, na.rm = T ), 
                       length.out = 100)
   pred_temp   <- boot::inv.logit( ranef_su[i,1] + ranef_su[i,2] * x_temp ) 
-  pred_temp_df <- data.frame( logsize_t0 = x_temp, survives_tplus1 = pred_temp )
+  pred_temp_df <- data.frame( logarea = x_temp, survives_tplus1 = pred_temp )
   temp_plot <- surv_temp %>% ggplot( ) +
     geom_point( aes( x = logsize_t0, y = survives_tplus1 ) ) +
-    geom_line( data = pred_temp_df, aes( x     = logsize_t0,
+    geom_line( data = pred_temp_df, aes( x     = logarea,
                                          y     = survives_tplus1 ),
                color = 'red',
                lwd   = 1  ) +
     labs( title = paste0( years_v[i] ),
           x = expression( 'log( size )'[t0] ),
           y = expression( 'Survival probability  '[ t1] ) )
-  if( i %in% c( 2:4, 6:8, 10:12 ) ){
+  if( i %in% c( 33:41, 43:51, 53:61, 63:70 ) ){
     temp_plot <- temp_plot + theme( axis.title.y = element_blank( ) )
   }
   
   return(temp_plot)
 }
-length(surv_bin_yrs)
-surv_yrs <- lapply( 1:39, surv_yr_plots )
-surv_years <- wrap_plots( surv_yrs ) + plot_layout( nrow = 4 )
 
-#only shows 13 plots, need 41, but replacing 13 to 41 gives "out of bounds" error
+surv_yrs <- lapply(1:39, surv_yr_plots)
+surv_years <- wrap_plots(surv_yrs) + plot_layout(nrow = 4)
+
+# png( 'results/Bou_gra_yr/survival_pred.png', width = 10, height = 8, units = "in", res = 150 )
 
 surv_years
 
 
-ggsave(filename = "ks_ange/results/survival_pred.png", plot = surv_years)
-#code works, but the plot's gone missing, I will come back to this 
+#ggsave(filename = "ks_ange/results/survival_pred.png", plot = surv_years)
 
-# I choose not to open the pandora's box of the 13 warnings
+ggsave(filename = "ks_ange/results/survival_pred.png", 
+       plot = surv_years, 
+       width = 30,
+       height = 24,
+       dpi = 300)  
+
 
 
 #### Growth model####------------------------------------------------
@@ -330,10 +348,10 @@ grow_df      <- grow %>%
   mutate( logsize_t0 = log( basalArea_genet ),
           logsize_t1 = log( size_tplus1 ) )
 
-grow_mod_yr <- lmer( logsize_t1 ~ logsize_t0 + ( logsize_t0 | Year ), data = grow_df )
+gr_mod_yr <- lmer( logsize_t1 ~ logsize_t0 + ( logsize_t0 | Year ), data = grow_df )
 
 
-ranef_gr <- data.frame( coef( grow_mod_yr )[1] )
+ranef_gr <- data.frame( coef( gr_mod_yr )[1] )
 
 grow_yr_plots <- function( i ){
   temp_plot <- grow_df %>% filter( Year == i ) %>% ggplot( ) +
@@ -346,7 +364,7 @@ grow_yr_plots <- function( i ){
     labs( title = paste0( i ),
           x = expression( 'log( size ) '[ t0] ),
           y = expression( 'log( size ) '[ t1] ) )
-  if( i %in% c( 1998:2000, 2002:2004, 2006:2008 ) ){
+  if( i %in% c( 33:41, 43:51, 53:61, 61:70 ) ){
     temp_plot <- temp_plot + theme( axis.title.y = element_blank( ) )
   }
   
@@ -359,6 +377,89 @@ grow_years <- wrap_plots( grow_yrs ) + plot_layout( nrow = 4 )
 
 grow_years
 
-ggsave(filename = "ks_ange/results/survival_pred.png", plot = grow_years)
-#code works, but the plot's gone missing, I will come back to this.
-# these plots were there, but after a re-run can't be made as the data object is a list.
+ggsave(filename = "ks_ange/results/grow_pred.png", plot = grow_years,
+          width = 30,
+         height = 20,
+            dpi = 300) 
+
+# 6. Quadratic & cubic term---------------------------------------------------------
+
+grow_df$logsize_t0_2 <- grow_df$logsize_t0^2
+grow_df$logsize_t0_3 <- grow_df$logsize_t0^3
+
+gr_mod_yr2 <- lmer( logsize_t1 ~ logsize_t0 + logsize_t0_2 + ( logsize_t0 | Year ), data = grow_df )
+gr_mod_yr3 <- lmer( logsize_t1 ~ logsize_t0 + logsize_t0_2 + logsize_t0_3 + ( logsize_t0 | Year ), data = grow_df )
+
+g_mods <- c( gr_mod_yr, gr_mod_yr2, gr_mod_yr3 )
+
+AICtab( g_mods, weights = T )
+
+# Current R version does not allow this function
+
+
+# 7. Quadratic term growth modeling--------------------------------------------------------------
+
+ranef_gr2 <- data.frame( coef( gr_mod_yr2 )[1] )
+
+grow_yr_plots2 <- function( i ){
+  temp_f <- function( x ) ranef_gr2[which(rownames( ranef_gr2 ) == i ),1] + ranef_gr2[which(rownames( ranef_gr2 ) == i ),2] * x + ranef_gr2[which(rownames( ranef_gr2 ) == i ),3] * x^2 
+  temp_plot <- grow_df %>% filter( Year == i ) %>% ggplot( ) +
+    geom_point( aes( x = logsize_t0, 
+                     y = logsize_t1 ) ) +
+    geom_function( fun = temp_f,
+                   color = "orange",
+                   lwd   = 1 ) +
+    labs( title = paste0( i ),
+          x = expression( 'log( size ) '[ t0] ),
+          y = expression( 'log( size ) '[ t1] ) )
+  if( i %in% c( 33:41, 43:51, 53:61, 63:70 ) ){
+    temp_plot <- temp_plot + theme( axis.title.y = element_blank( ) )
+  }
+  
+  return(temp_plot)
+}
+grow_yrs2 <- lapply( 32:70, grow_yr_plots2 )
+grow_years2 <- wrap_plots( grow_yrs2 ) + plot_layout( nrow = 4 )
+
+# png( 'results/Bou_gra_yr/grow_pred_2.png', width = 10, height = 6, units = "in", res = 150 )
+
+ggsave(filename = "ks_ange/results/grow_pred_quadratic.png", plot = grow_years2,
+       width = 30,
+       height = 20,
+       dpi = 300) 
+
+grow_years2
+
+
+# 8. Cubic term growth modeling
+
+ranef_gr3 <- data.frame( coef( gr_mod_yr3 )[1] )
+
+grow_yr_plots3 <- function( i ){
+  temp_f <- function( x ) ranef_gr3[which(rownames( ranef_gr3 ) == i ),1] + ranef_gr3[which(rownames( ranef_gr3 ) == i ),2] * x + ranef_gr2[which(rownames( ranef_gr2 ) == i ),3] * x^2 
+  temp_plot <- grow_df %>% filter( Year == i ) %>% ggplot( ) +
+    geom_point( aes( x = logsize_t0, 
+                     y = logsize_t1 ) ) +
+    geom_function( fun = temp_f,
+                   color = "turquoise",
+                   lwd   = 1 ) +
+    labs( title = paste0( i ),
+          x = expression( 'log( size ) '[ t0] ),
+          y = expression( 'log( size ) '[ t1] ) )
+  if( i %in% c( 33:41, 43:51, 53:61, 63:70 ) ){
+    temp_plot <- temp_plot + theme( axis.title.y = element_blank( ) )
+  }
+  
+  return(temp_plot)
+}
+grow_yrs3 <- lapply( 32:70, grow_yr_plots3 )
+grow_years3 <- wrap_plots( grow_yrs3 ) + plot_layout( nrow = 4 )
+
+# png( 'results/Bou_gra_yr/grow_pred_3.png', width = 10, height = 6, units = "in", res = 150 )
+
+ggsave(filename = "ks_ange/results/grow_pred_cubic.png", plot = grow_years3,
+       width = 30,
+       height = 20,
+       dpi = 300) 
+
+grow_years3
