@@ -431,9 +431,11 @@ ggsave(filename = "ks_ange/results/grow_pred_quadratic.png", plot = grow_years2,
 grow_years2
 
 
-# 8. Cubic term growth modeling
+# 8. Cubic term growth modeling-------------------------------------------------
 
 ranef_gr3 <- data.frame( coef( gr_mod_yr3 )[1] )
+
+summary(gr_mod_yr3)
 
 grow_yr_plots3 <- function( i ){
   temp_f <- function( x ) ranef_gr3[which(rownames( ranef_gr3 ) == i ),1] + ranef_gr3[which(rownames( ranef_gr3 ) == i ),2] * x + ranef_gr2[which(rownames( ranef_gr2 ) == i ),3] * x^2 
@@ -463,3 +465,167 @@ ggsave(filename = "ks_ange/results/grow_pred_cubic.png", plot = grow_years3,
        dpi = 300) 
 
 grow_years3
+
+# 9. Growth variance model------------------------------------------------------------------
+
+x <- fitted( gr_mod_yr2 )
+y <- resid( gr_mod_yr2 )^2
+
+gr_var <- nls( y ~ a * exp( b * x ), start = list( a = 1, b = 0 ) )
+
+
+# 10. Recruitment model-----------------------------------------------------------------------
+
+rec_mod <- glmer.nb( NRquad ~ ( 1 | Year ), data = recr )
+
+recr_df        <- recr %>% 
+  mutate( pred_mod      = predict( rec_mod, type = 'response' ) ) 
+
+rec_sums_df <- recr_df %>% 
+  group_by( Year ) %>% 
+  summarise( NRquad    = sum( NRquad ),
+             pred_mod  = sum( pred_mod ) ) %>% 
+  ungroup
+
+
+indiv_yr <- surv_df %>%
+  count( Year ) %>% 
+  rename( n_adults = n ) %>% 
+  mutate( Year = Year + 1 )
+
+repr_pc_yr <- indiv_yr %>% 
+  left_join( rec_sums_df ) %>%
+  mutate( repr_percapita = pred_mod / n_adults ) %>% 
+  mutate( repr_pc_obs    = NRquad / n_adults ) %>% 
+  mutate( Year = Year - 1 ) %>% 
+  drop_na
+
+recruit_pred <- repr_pc_yr %>% 
+                ggplot() +
+                geom_point( aes( x = repr_pc_obs,
+                   y = repr_percapita ) ) +
+                geom_abline( aes( intercept = 0,
+                    slope     = 1 ),
+                    color     = "red",
+                    lwd       = 2,
+                    alpha     = 0.5 ) +
+               labs( x = "Observed per capita recruitment",
+                     y = "Predicted per capita recruitment" )
+
+
+## png( 'results/Bou_gra_yr/recruit_pred.png', width = 6, height = 4, units = "in", res = 150 )
+
+ggsave(filename = "ks_ange/results/recruit_pred.png", plot = recruit_pred,
+       width = 10,
+       height = 8,
+       dpi = 300) 
+
+
+# 11. Exporting parameter estimates--------------------------------------------------
+
+#survival####
+
+su_yr_r <- data.frame( coefficient = paste0( "year_", rownames( coef( su_mod_yr )$Year ) ), 
+                       value       = coef( su_mod_yr )$Year[,"(Intercept)"] )
+su_la_r <- data.frame( coefficient = paste0( "logarea", rownames( coef( su_mod_yr )$Year ) ), 
+                       value       = coef( su_mod_yr )$Year[,"logsize_t0"] )
+
+surv_out_yr <- Reduce( function(...) rbind(...), list( su_la_r, su_yr_r ) ) %>%
+  mutate( coefficient = as.character( coefficient ) )
+
+write.csv( surv_out_yr, "ks_ange/data//surv_pars.csv", row.names = F )
+
+#growth####
+
+
+var_fe  <- data.frame( coefficient = names( coef( gr_var ) ),
+                       value       = coef( gr_var ) )
+
+year_re <- data.frame( coefficient = paste0( "year_", rownames( coef( gr_mod_yr2 )$Year ) ), 
+                       value       = coef( gr_mod_yr2 )$Year[,"(Intercept)"] )
+
+la_re   <- data.frame( coefficient = paste0( "logsize_t0", rownames( coef( gr_mod_yr2 )$Year ) ), 
+                       value       = coef( gr_mod_yr2 )$Year[,"logsize_t0"] )
+
+la2_re  <- data.frame( coefficient = paste0( "logsize_t0_2", rownames( coef( gr_mod_yr2 )$Year ) ), 
+                       value       = coef( gr_mod_yr2 )$Year[,"logsize_t0_2"] )
+
+
+grow_out_yr <- Reduce( function(...) rbind(...), list( var_fe, la_re, la2_re, year_re ) ) %>%
+  mutate( coefficient = as.character( coefficient ) )
+
+write.csv( grow_out_yr, "ks_ange/data/grow_pars.csv", row.names = F )
+
+#recruitment####
+
+rc_pc <- data.frame( coefficient = paste0( "rec_pc_", repr_pc_yr$Year ),
+                     value = repr_pc_yr$repr_percapita )
+
+rc_sz <- data.frame( coefficient = c( "rec_siz", "rec_sd" ),
+                     value = c( mean( recSize$logsize_t0 ),
+                                sd( recSize$logsize_t0 ) ) )
+
+recr_out_yr <- Reduce( function(...) rbind(...), list( rc_pc, rc_sz ) ) %>%
+  mutate( coefficient = as.character( coefficient ) )
+
+write.csv( recr_out_yr, "ks_ange/data/recr_pars.csv", row.names = F )
+
+#constant pars####
+
+constants <- data.frame( coefficient = c( "recr_sz",
+                                          "recr_sd",
+                                          "a",
+                                          "b",
+                                          "L",
+                                          "U",
+                                          "mat_size" ),
+                         value = c( mean( recSize$logsize_t0 ),  # are these four "logsize_t0" the same 
+                                    sd( recSize$logsize_t0 ),    # are these four "logsize_t0" the same 
+                                    as.numeric(coef(gr_var)[1]),
+                                    as.numeric(coef(gr_var)[2]),
+                                    grow_df$logsize_t0 %>% min,  # are these four "logsize_t0" the same 
+                                    grow_df$logsize_t0 %>% max,  # are these four "logsize_t0" the same 
+                                    200 ) )
+
+surv_fe <- data.frame( coefficient = c( "surv_b0",
+                                        "surv_b1" ),
+                       value       = fixef( su_mod_yr ) )
+
+grow_fe <- data.frame( coefficient = c( "grow_b0",
+                                        "grow_b1",
+                                        "grow_b2" ),
+                       value       = fixef( gr_mod_yr2 ) )
+
+rec_fe  <- data.frame( coefficient = "fecu_b0",
+                       value       = mean( repr_pc_yr$repr_percapita ) )
+
+pars_cons <- Reduce(function(...) rbind(...), list( surv_fe, grow_fe, rec_fe, constants ) ) %>%
+  mutate(coefficient = as.character( coefficient))
+          
+
+rownames( pars_cons ) <- 1:13
+
+pars_cons_wide <- as.list( pivot_wider( pars_cons, names_from = "coefficient", values_from = "value" ) )
+
+write.csv( pars_cons_wide, "ks_ange/data/pars_cons.csv", row.names = F )
+
+#varying pars####
+su_b0 <- data.frame( coefficient = paste0( "surv_b0_", rownames( coef( su_mod_yr )$Year ) ), 
+                       value       = coef( su_mod_yr )$Year[,"(Intercept)"] )
+su_b1 <- data.frame( coefficient = paste0( "surv_b1_", rownames( coef( su_mod_yr )$Year ) ), 
+                       value       = coef( su_mod_yr )$Year[,"logsize_t0"] )
+grow_b0 <- data.frame( coefficient = paste0( "grow_b0_", rownames( coef( gr_mod_yr2 )$Year ) ), 
+                       value       = coef( gr_mod_yr2 )$Year[,"(Intercept)"] )
+grow_b1   <- data.frame( coefficient = paste0( "grow_b1_", rownames( coef( gr_mod_yr2 )$Year ) ), 
+                       value       = coef( gr_mod_yr2 )$Year[,"logsize_t0"] )
+grow_b2   <- data.frame( coefficient = paste0( "grow_b2_", rownames( coef( gr_mod_yr2 )$Year ) ), 
+                       value       = coef( gr_mod_yr2 )$Year[,"logsize_t0_2"] )
+fecu_b0 <- data.frame( coefficient = paste0( "fecu_b0_", repr_pc_yr$Year ),
+                     value = repr_pc_yr$repr_percapita )
+
+pars_var <- Reduce(function(...) rbind(...), list( su_b0, su_b1, grow_b0, grow_b1, grow_b2, fecu_b0 ) )
+
+pars_var_wide <- as.list( pivot_wider( pars_var, names_from = "coefficient", values_from = "value" ) )
+
+write.csv( pars_var_wide, "ks_ange/data/pars_var.csv", row.names = F )
+
