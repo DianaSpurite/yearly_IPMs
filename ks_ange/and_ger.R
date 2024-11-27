@@ -24,44 +24,44 @@ and_ger            <- and_ger %>%
   mutate(logsize_t1 = log(size_tplus1)) 
 
 surv               <- subset( and_ger, !is.na( survives_tplus1 ) ) %>%
-                      subset( basalArea_genet != 0 ) %>%
-                      select( Quad, Year, trackID,
-                      basalArea_genet, logsize_t0,logsize_t1,
-                      survives_tplus1, size_tplus1 )
+  subset( basalArea_genet != 0 ) %>%
+  select( Quad, Year, trackID,
+          basalArea_genet, logsize_t0,logsize_t1,
+          survives_tplus1, size_tplus1 )
 
 
 grow              <- and_ger %>% 
-                     subset( basalArea_genet != 0) %>%
-                     subset( size_tplus1 != 0) %>% 
-                     select( Quad, Year, trackID,
-                     basalArea_genet, logsize_t0,logsize_t1,
-                     survives_tplus1, size_tplus1 )
+  subset( basalArea_genet != 0) %>%
+  subset( size_tplus1 != 0) %>% 
+  select( Quad, Year, trackID,
+          basalArea_genet, logsize_t0,logsize_t1,
+          survives_tplus1, size_tplus1 )
 
 #prep for recruitment
 
 quad_df           <- and_ger %>%
-                     group_by( Species, Quad, Year ) %>%
-                     summarise( totPsize = sum( basalArea_genet ) ) %>%
-                     ungroup
+  group_by( Species, Quad, Year ) %>%
+  summarise( totPsize = sum( basalArea_genet ) ) %>%
+  ungroup
 
 group_df          <- quad_df %>%
-                     group_by( Species, Year ) %>%
-                     summarise( Gcov = mean( totPsize ) ) %>%
-                     ungroup
+  group_by( Species, Year ) %>%
+  summarise( Gcov = mean( totPsize ) ) %>%
+  ungroup
 
 cover_df         <- left_join( quad_df, group_df ) %>%
-                    mutate( year = Year + 1 ) %>%
-                    mutate( year = as.integer( year ) ) %>%
-                    drop_na()
+  mutate( year = Year + 1 ) %>%
+  mutate( year = as.integer( year ) ) %>%
+  drop_na()
 #recruitment
 
 recr_df          <- and_ger %>%
-                    group_by( Species, Quad, Year ) %>%
-                    summarise( NRquad   = sum( recruit, na.rm=T ) ) %>%
-                    ungroup
+  group_by( Species, Quad, Year ) %>%
+  summarise( NRquad   = sum( recruit, na.rm=T ) ) %>%
+  ungroup
 
 recr             <- left_join( cover_df, recr_df ) %>%
-                    drop_na
+  drop_na
 
 write.csv( surv,  "ks_ange/data/survival_df.csv" )
 write.csv( grow, "ks_ange/data/growth_df.csv" )
@@ -70,7 +70,7 @@ write.csv( recr, "ks_ange/data/recruitment_df.csv" )
 
 # 2. Plotting data by year #---------------------------------------------
 
-        
+
 and_ger_long       <- pivot_longer( and_ger, cols = c( logsize_t0, logsize_t1 ), names_to = "size", values_to = "size_value" )
 
 and_ger_long$size     <- as.factor( and_ger_long$size )
@@ -146,8 +146,8 @@ surv_yr_pan_df <- bind_rows( surv_bin_yrs ) %>%
 
 
 plot <- ggplot( data   = surv_yr_pan_df, 
-        aes( x = logsize_t0, 
-             y = survives_tplus1 ) ) +
+                aes( x = logsize_t0, 
+                     y = survives_tplus1 ) ) +
   geom_point( alpha = 0.5,
               pch   = 16,
               size  = 1,
@@ -189,14 +189,14 @@ grow_yr_pan_df <- grow %>%
 # png( 'results/and_ger_yr/growth_yr.png', width = 10, height = 6, units = "in", res = 150 )
 
 plot <-  ggplot(data  = grow_yr_pan_df, aes( x = logsize_t0, y = log( size_tplus1 ) ) ) +
-         geom_point( alpha = 0.5,
+  geom_point( alpha = 0.5,
               pch   = 16,
               size  = 0.7,
               color = 'red' ) +
   # split in panels
-         facet_wrap( .~ transition, nrow = 4 ) +
-         theme_bw( ) +
-         theme( axis.text     = element_text( size   = 8 ),
+  facet_wrap( .~ transition, nrow = 4 ) +
+  theme_bw( ) +
+  theme( axis.text     = element_text( size   = 8 ),
          title         = element_text( size   = 10 ),
          strip.text.y  = element_text( size   = 8,
                                        margin = margin( 0.5, 0.5, 0.5, 0.5,
@@ -206,8 +206,8 @@ plot <-  ggplot(data  = grow_yr_pan_df, aes( x = logsize_t0, y = log( size_tplus
                                                         'mm' ) ),
          strip.switch.pad.wrap = unit( '0.5', unit = 'mm' ),
          panel.spacing         = unit( '0.5', unit = 'mm' ) ) +
-         labs( x = expression( 'log( size )'[t0] ),
-         y = expression( 'log( size )'[t1] ) )
+  labs( x = expression( 'log( size )'[t0] ),
+        y = expression( 'log( size )'[t1] ) )
 
 ggsave(filename = "ks_ange/results/growth_yr.png", plot = plot)
 
@@ -215,40 +215,40 @@ ggsave(filename = "ks_ange/results/growth_yr.png", plot = plot)
 # 4. Recruitment data by year #---------------------------------------------
 
 indiv_qd <- surv %>%
-            group_by( Quad ) %>%
-            count( Year ) %>% 
-            rename( n_adults = n ) %>% 
-            mutate( Year = Year + 1 )
+  group_by( Quad ) %>%
+  count( Year ) %>% 
+  rename( n_adults = n ) %>% 
+  mutate( Year = Year + 1 )
 
 repr_yr <- indiv_qd %>% 
-           left_join( recr ) %>%
-           mutate( repr_pc    = NRquad / n_adults ) %>% 
-           mutate( Year = Year - 1 ) %>% 
-           drop_na
+  left_join( recr ) %>%
+  mutate( repr_pc    = NRquad / n_adults ) %>% 
+  mutate( Year = Year - 1 ) %>% 
+  drop_na
 
 ## Joining with `by = join_by(Quad, Year)`
 
 # png( 'results/and_ger_yr/recruit_yr.png', width = 10, height = 6, units = "in", res = 150 )
 
 plot <- repr_yr %>%
-        filter( NRquad != max( repr_yr$NRquad ) ) %>% 
-        filter( n_adults != max( repr_yr$n_adults ) ) %>% 
-        ggplot( aes( x = n_adults, y = NRquad ) ) +
-        geom_point( alpha = 1,
+  filter( NRquad != max( repr_yr$NRquad ) ) %>% 
+  filter( n_adults != max( repr_yr$n_adults ) ) %>% 
+  ggplot( aes( x = n_adults, y = NRquad ) ) +
+  geom_point( alpha = 1,
               pch   = 16,
               size  = 1,
               color = 'red' ) +
-        facet_wrap( .~ Year, nrow = 4 ) +
-        theme_bw( ) +
-        theme( axis.text     = element_text( size   = 8 ),
-              title         = element_text( size   = 10 ),
-              strip.text.y  = element_text( size   = 8,
-                                margin = margin( 0.5, 0.5, 0.5, 0.5, 'mm' ) ),
-              strip.text.x  = element_text( size   = 8,
-                                margin = margin( 0.5, 0.5, 0.5, 0.5, 'mm' ) ),
-              strip.switch.pad.wrap    = unit( '0.5', unit = 'mm' ),
-              panel.spacing            = unit( '0.5', unit = 'mm' ) ) +
-       labs( x = expression( 'Number of adults '[ t0] ),
+  facet_wrap( .~ Year, nrow = 4 ) +
+  theme_bw( ) +
+  theme( axis.text     = element_text( size   = 8 ),
+         title         = element_text( size   = 10 ),
+         strip.text.y  = element_text( size   = 8,
+                                       margin = margin( 0.5, 0.5, 0.5, 0.5, 'mm' ) ),
+         strip.text.x  = element_text( size   = 8,
+                                       margin = margin( 0.5, 0.5, 0.5, 0.5, 'mm' ) ),
+         strip.switch.pad.wrap    = unit( '0.5', unit = 'mm' ),
+         panel.spacing            = unit( '0.5', unit = 'mm' ) ) +
+  labs( x = expression( 'Number of adults '[ t0] ),
         y = expression( 'Number of recruits '[ t1] ) )
 
 
@@ -264,12 +264,12 @@ recSize$Year_fac <- as.factor( recSize$Year )
 # png( 'results/and_ger_yr/recr_histograms.png', width = 10, height = 6, units = "in", res = 150 )
 
 plot <- recSize %>% ggplot( aes( x = logsize_t0 ) ) +
-        geom_histogram( ) +
-        facet_wrap( Year_fac ~ ., 
+  geom_histogram( ) +
+  facet_wrap( Year_fac ~ ., 
               scales = "free_y",
               nrow = 4 ) +
-        labs( x = expression('log( size )'[t0]),
-              y = "Frequency" )
+  labs( x = expression('log( size )'[t0]),
+        y = "Frequency" )
 
 ggsave(filename = "ks_ange/results/recruit_histograms.png", plot = plot)
 
@@ -310,7 +310,7 @@ surv_yr_plots <- function( i ){
   return(temp_plot)
 }
 length(surv_bin_yrs)
-surv_yrs <- lapply( 1:41, surv_yr_plots )
+surv_yrs <- lapply( 1:39, surv_yr_plots )
 surv_years <- wrap_plots( surv_yrs ) + plot_layout( nrow = 4 )
 
 #only shows 13 plots, need 41, but replacing 13 to 41 gives "out of bounds" error
@@ -362,8 +362,3 @@ grow_years
 ggsave(filename = "ks_ange/results/survival_pred.png", plot = grow_years)
 #code works, but the plot's gone missing, I will come back to this.
 # these plots were there, but after a re-run can't be made as the data object is a list.
-
-
-
-
-
