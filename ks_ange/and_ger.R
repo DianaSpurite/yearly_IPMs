@@ -842,7 +842,7 @@ proj_pop <- function( i ) {
   sum( all_mat[,,i] %*% year_pop[[i]] )
 }
 
-projected_pop_ns  <- sapply( 1:39, proj_pop ) #double check if 1:13 or 1:39
+projected_pop_ns  <- sapply( 1:39, proj_pop ) #double check if 1:13 or 1:39 when pulled
 
 pop_counts_update <- pop_counts %>% 
                       mutate( proj_n_t1 = projected_pop_ns ) %>% 
@@ -860,3 +860,99 @@ ggplot( pop_counts_update ) +
                    slope     = 1) ) +
   labs( x = "Modeled lambda",
         y = "Observed population growth rate" )
+
+
+
+# Building year specific IPM with 'ipmr'
+
+all_pars <- c( pars_cons_wide, pars_var_wide )
+
+write.csv( all_pars, "ks_ange/data/all_pars.csv", row.names = F )
+
+
+
+library( ipmr )
+
+proto_ipm_yr <- init_ipm( sim_gen   = "simple",
+                         di_dd      = "di",
+                         det_stoch  = "det" ) %>% 
+  
+  define_kernel(
+    name             = "P_yr",
+    family           = "CC",
+    formula          = s_yr * g_yr,
+    s_yr             = plogis( surv_b0_yr + 
+                          surv_b1_yr * size_1), 
+    g_yr             = dnorm( size_2, mu_g_yr, grow_sig ),
+    mu_g_yr          = grow_b0_yr + grow_b1_yr * size_1 + grow_b2_yr * size_1^2,
+    grow_sig         = sqrt( a * exp( b * size_1 ) ),
+    data_list        = all_pars,
+    states           = list( c( 'size' ) ),
+    
+    # these next two lines are new
+    # the first tells ipmr that we are using parameter sets
+    uses_par_sets    = TRUE,
+    # the second defines the values the yr suffix can assume
+    par_set_indices  = list( yr = 1997:2009 ),
+    evict_cor        = TRUE,
+    evict_fun        = truncated_distributions( fun    = 'norm',
+                                         target = 'g_yr' )
+  ) %>% 
+  
+  define_kernel(
+    name             = 'F_yr',
+    family           = 'CC',
+    formula          = fecu_b0_yr * r_d,
+    r_d              = dnorm( size_2, recr_sz, recr_sd ),
+    data_list        = all_pars,
+    states           = list( c( 'size' ) ),
+    uses_par_sets    = TRUE,
+    par_set_indices  = list( yr = 1997:2009 ),
+    evict_cor        = TRUE,
+    evict_fun        = truncated_distributions( "norm", "r_d" )
+  ) %>% 
+  
+  define_impl(
+    make_impl_args_list(
+      kernel_names = c( "P_yr", "F_yr" ),
+      int_rule     = rep( "midpoint", 2 ),
+      state_start  = rep( "size", 2 ),
+      state_end    = rep( "size", 2 )
+    )
+  ) %>% 
+  
+  define_domains(
+    size = c(all_pars$L,
+             all_pars$U,
+             all_pars$mat_siz
+    )
+  ) %>% 
+  
+  # We also append the suffix in define_pop_state(). This will create a deterministic
+  # simulation for every "year"
+  define_pop_state(
+    n_size_yr = rep( 1 / 200, 200 )
+  )
+
+ipmr_yr <- make_ipm( proto_ipm = proto_ipm_yr,
+                     iterations = 200 )
+lam_mean_ipmr <- lambda( ipmr_yr )
+
+
+
+lam_out <- data.frame( coefficient = names( lam_mean_ipmr ), 
+                       value = lam_mean_ipmr )
+
+rownames( lam_out ) <- 1:13
+
+lam_out_wide <- as.list( pivot_wider( lam_out, names_from = "coefficient", values_from = "value" ) )
+
+
+write.csv( lam_out_wide, "ks_ange/data/lambdas_yr.csv", row.names = F )
+
+
+
+
+#Populating the PADRINO database template
+
+
