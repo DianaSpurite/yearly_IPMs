@@ -616,3 +616,247 @@ pars_var_wide <- as.list( pivot_wider( pars_var, names_from = "coefficient", val
 
 write.csv( pars_var_wide, "ks_ange/data/pars_var.csv", row.names = F )
 
+# Building year specific IPM------------------------------------------------
+
+                   #From here edited in github (because TRAIN-OFFICE)
+
+lmer( logsize_t1 ~ logsize_t0 + logsize_t0_2 + ( logsize_t0 | Year ), data = grow_df )
+
+# Standard deviation of growth model
+grow_sd <- function( x, pars ) {
+  pars$a * ( exp( pars$b * x ) ) %>% sqrt 
+}
+
+# Growth from size x to size y
+gxy <- function( x, y, pars ) {
+  return( dnorm( y,  mean = pars$grow_b0 + pars$grow_b1*x + pars$grow_b2*x^2,
+                 sd   = grow_sd( x, pars ) ) )
+}
+
+# Inverse logit
+inv_logit <- function( x ) { exp( x ) / ( 1 + exp( x ) ) }
+
+# Survival of x-sized individual to time t1
+sx <- function( x, pars ) {
+  return( inv_logit( pars$surv_b0 + pars$surv_b1 * x ) )
+}
+
+# Transition of x-sized individual to y-sized individual at time t1
+pxy <- function( x, y, pars ) {
+  return( sx( x, pars ) * gxy( x, y, pars ) )
+}
+
+# Per-capita production of y-sized recruits
+fy <- function( y, pars, h ){
+  n_recr  <- pars$fecu_b0
+  recr_y  <- dnorm( y, pars$recr_sz, pars$recr_sd ) * h
+  recr_y  <- recr_y / sum( recr_y )
+  f       <- n_recr * recr_y
+  return( f )
+  
+}
+
+
+#kernel####
+                   
+kernel <- function( pars ) {
+  
+  n   <- pars$mat_siz
+  L   <- pars$L
+  U   <- pars$U
+  h   <- ( U - L ) / n
+  b   <- L + c( 0:n ) * h
+  y   <- 0.5 * ( b[1:n] + b[2:( n + 1 )] )
+  
+  Fmat        <- matrix( 0, n, n )
+  Fmat[]      <- matrix( fy( y, pars, h ), n, n )
+  
+  Smat   <- c( )
+  Smat   <- sx( y, pars )
+  
+  Gmat   <- matrix( 0, n, n )
+  Gmat[] <- t( outer( y, y, gxy, pars ) ) * h
+  
+  Tmat   <- matrix( 0, n, n )
+  
+  for( i in 1:( n / 2 ) ) {
+    Gmat[1,i] <- Gmat[1,i] + 1 - sum( Gmat[,i] )
+    Tmat[,i]  <- Gmat[,i] * Smat[i]
+  }
+  
+  for( i in ( n / 2 + 1 ):n ) {
+    Gmat[n,i] <- Gmat[n,i] + 1 - sum( Gmat[,i] )
+    Tmat[,i]  <- Gmat[,i] * Smat[i]
+  }
+  
+  k_yx <- Fmat + Tmat
+  
+  return( list( k_yx    = k_yx,
+                Fmat    = Fmat,
+                Tmat    = Tmat,
+                Gmat    = Gmat,
+                meshpts = y ) )
+  
+}
+
+#lambda###
+                   
+pars_mean <- pars_cons_wide
+
+lambda_ipm <- function( i ) {
+  return( Re( eigen( kernel( i )$k_yx )$value[1] ) )
+}
+
+lam_mean <- lambda_ipm( pars_mean )
+                   
+lam_mean
+
+
+band_ger_yr <- c( 32:70 )
+pars_yr <- vector( mode = "list", length = length( bogr_yr ) )
+extr_value_list <- function( x, field ) {
+  return( as.numeric( x[paste0( field )] %>% unlist( ) ) )
+}
+
+prep_pars <- function( i ) {
+  yr_now    <- bogr_yr[i]
+  pars_year <- list( surv_b0 = extr_value_list( pars_var_wide, paste( "surv_b0", yr_now, sep = "_" ) ),
+                     surv_b1 = extr_value_list( pars_var_wide, paste( "surv_b1", yr_now, sep = "_" ) ),
+                     grow_b0 = extr_value_list( pars_var_wide, paste( "grow_b0", yr_now, sep = "_" ) ),
+                     grow_b1 = extr_value_list( pars_var_wide, paste( "grow_b1", yr_now, sep = "_" ) ),
+                     grow_b2 = extr_value_list( pars_var_wide, paste( "grow_b2", yr_now, sep = "_" ) ),
+                     a       = extr_value_list( pars_cons_wide, "a" ),
+                     b       = extr_value_list( pars_cons_wide, "b" ),
+                     fecu_b0 = extr_value_list( pars_var_wide, paste( "fecu_b0", yr_now, sep = "_" ) ),
+                     recr_sz = extr_value_list( pars_cons_wide, "recr_sz" ),
+                     recr_sd = extr_value_list( pars_cons_wide, "recr_sd" ),
+                     L       = extr_value_list( pars_cons_wide, "L" ),
+                     U       = extr_value_list( pars_cons_wide, "U" ),
+                     mat_siz = 200 )
+  return( pars_year )
+  
+}
+
+pars_yr <- lapply( 1:length( and_ger_yr ), prep_pars )
+
+
+calc_lambda <- function( i ) {
+  lam <- Re( eigen( kernel( pars_yr[[i]] )$k_yx )$value[1] )
+  return( lam )
+}
+
+lambdas_yr <- lapply( 1:length( and_ger_yr ), calc_lambda )
+names( lambdas_yr ) <- and_ger_yr
+
+
+
+#comparing lambdas
+                   
+year_kern <- function( i ) {
+  return( kernel( pars_yr[[i]] )$k_yx )
+}
+
+kern_yr <- lapply( 1:length( and_ger_yr ), year_kern )
+
+all_mat <- array( dim = c( 200, 200, 13 ) )
+
+for( i in 1:length( and_ger_yr ) ) {
+  all_mat[,,i] <- as.matrix( kern_yr[[i]] )
+}
+
+mean_kern <- apply( all_mat, c( 1, 2 ), mean )
+
+lam_mean_kern <- Re( eigen( mean_kern )$value[1] )
+
+lam_mean_kern
+
+
+
+# Population counts at time t0
+pop_counts_t0 <- and_ger_yr %>%
+  group_by( Year, Quad ) %>%
+  summarize( n_t0 = n( ) ) %>% 
+  ungroup %>% 
+  mutate( Year = Year + 1 )
+
+# Population counts at time t1
+pop_counts_t1 <- and_ger_yr %>%
+  group_by( Year, Quad ) %>%
+  summarize( n_t1 = n( ) ) %>% 
+  ungroup 
+
+# Calculate observed population growth rates, 
+#   accounting for discontinued sampling!
+pop_counts <- left_join( pop_counts_t0, 
+                         pop_counts_t1 ) %>% 
+                # by dropping NAs, we remove gaps in sampling!
+                drop_na %>% 
+                group_by( Year ) %>% 
+                summarise( n_t0 = sum( n_t0 ),
+                           n_t1 = sum( n_t1 ) ) %>% 
+                ungroup %>% 
+                mutate( obs_pgr = n_t1 / n_t0 ) %>% 
+                mutate( lambda = lambdas_yr %>% unlist )
+
+
+lam_mean_yr <- mean( pop_counts$lambda, na.rm = T )
+lam_mean_count <- mean( pop_counts$obs_pgr, na.rm = T )
+
+lam_mean_geom <- exp( mean( log( pop_counts$obs_pgr ), na.rm = T ) )
+lam_mean_geom
+
+
+
+lam_mean_overall <- sum( pop_counts$n_t1 ) / sum( pop_counts$n_t0 )
+lam_mean_overall
+
+
+
+
+count_indivs_by_size <- function( size_vector, 
+                                  lower_size, 
+                                  upper_size, 
+                                  matrix_size ){
+
+  size_vector %>% 
+    cut( breaks = seq( lower_size - 0.00001, 
+                       upper_size + 0.00001, 
+                       length.out = matrix_size + 1 ) ) %>% 
+    table %>% 
+    as.vector 
+  
+}
+
+yr_pop_vec <- function( i ) {
+  vec_temp <- surv_df %>% filter( Year == i ) %>% select( logsize_t0 ) %>% unlist( ) #double check the logsize/logarea/etc
+  min_sz   <- pars_mean$L
+  max_sz   <- pars_mean$U
+  pop_vec <- count_indivs_by_size( vec_temp, min_sz, max_sz, 200 )
+  
+  return( pop_vec )
+}
+
+year_pop <- lapply( 32:70, yr_pop_vec )
+
+proj_pop <- function( i ) {
+  sum( all_mat[,,i] %*% year_pop[[i]] )
+}
+
+projected_pop_ns  <- sapply( 1:39, proj_pop ) #double check if 1:13 or 1:39
+
+pop_counts_update <- pop_counts %>% 
+                      mutate( proj_n_t1 = projected_pop_ns ) %>% 
+                      mutate( proj_pgr  = proj_n_t1/n_t0 ) 
+# png( 'results/Bou_gra_yr/obs_proj_lambdas.png', width = 6, height = 4, units = "in", res = 150 )
+
+ggplot( pop_counts_update ) +
+  geom_point( aes( x = lambda,
+                   y = obs_pgr ),
+              color = 'brown' ) +
+  geom_point( aes( x = proj_pgr,
+                   y = obs_pgr ),
+              color = 'red' ) +
+  geom_abline( aes(intercept = 0,
+                   slope     = 1) ) +
+  labs( x = "Modeled lambda",
+        y = "Observed population growth rate" )
