@@ -5,8 +5,7 @@
 #diana.spurite@posteo.de
 
 
-library(MuMIn) 
-#library( bblme ) # ver 1.0.25
+library( bbmle ) # ver 1.0.25
 library( ggplot2 ) # ver 3.4.4
 library( htmlTable ) # ver 2.4.2
 library( ipmr ) # ver 0.0.7
@@ -137,7 +136,7 @@ y_n_size <- Map( binned_prop, lwr, upr, 'n_size' ) %>% unlist
 
 surv_yrs       <- data.frame( Year = surv$Year %>% unique %>% sort )
 
-surv_bin_yrs   <- lapply( 1:39, df_binned_prop_year, and_ger, 20, 
+surv_bin_yrs   <- lapply( 1:39, df_binned_prop_year, and_ger, 20, #what't the 20 stand for here?
                   logsize_t0, survives_tplus1, surv_yrs )
 
 surv_yr_pan_df <- bind_rows( surv_bin_yrs ) %>% 
@@ -168,15 +167,15 @@ surv_yr_plot   <- ggplot ( data = surv_yr_pan_df,
                                   y = expression( 'Survival to time t1' ) )
 
 
-# reoccurring warning message (in all the exercises):
-# "Removed 95 rows containing missing values or values outside the scale range (`geom_point()`)."
 
 
-ggsave(filename = "ks_ange/results/survival_binned_yr.png", plot = surv_yr_plot,                            # The plot object
+ggsave(filename = "ks_ange/results/survival_binned_yr.png", plot = surv_yr_plot,# The plot object
           width = 10,                              
          height = 6,                              
             dpi = 300)                           
 
+# reoccurring warning message (in all the exercises):
+# "Removed n rows containing missing values or values outside the scale range (`geom_point()`)."
 
 
 # 3. Growth data by year #---------------------------------------------
@@ -369,7 +368,14 @@ gr_mod_yr3           <- lmer( logsize_t1 ~ logsize_t0 + logsize_t0_2 + logsize_t
 
 g_mods              <- c( gr_mod_yr, gr_mod_yr2, gr_mod_yr3 )
 
-AICtab( g_mods, weights = T ) # Current R version does not allow this function
+AICtab( g_mods, weights = T )
+
+#dAIC  df weight
+#model3   0.0 8  0.9963
+#model2  11.2 7  0.0037
+#model1 250.4 6  <0.001
+
+
 
 
 # 7. Quadratic term growth modeling--------------------------------------------------------------
@@ -589,7 +595,7 @@ pars_cons <- Reduce(function(...) rbind(...), list( surv_fe, grow_fe, rec_fe, co
   mutate(coefficient = as.character( coefficient))
           
 
-rownames( pars_cons ) <- 1:13
+rownames( pars_cons ) <- 1:13 #this stays 13
 
 pars_cons_wide <- as.list( pivot_wider( pars_cons, names_from = "coefficient", values_from = "value" ) )
 
@@ -597,18 +603,18 @@ write.csv( pars_cons_wide, "ks_ange/data/pars_cons.csv", row.names = F )
 
 #varying pars####
                     
-su_b0 <- data.frame( coefficient = paste0( "surv_b0_", rownames( coef( su_mod_yr )$Year ) ), 
-                       value       = coef( su_mod_yr )$Year[,"(Intercept)"] )
-su_b1 <- data.frame( coefficient = paste0( "surv_b1_", rownames( coef( su_mod_yr )$Year ) ), 
-                       value       = coef( su_mod_yr )$Year[,"logsize_t0"] )
-grow_b0 <- data.frame( coefficient = paste0( "grow_b0_", rownames( coef( gr_mod_yr2 )$Year ) ), 
-                       value       = coef( gr_mod_yr2 )$Year[,"(Intercept)"] )
+su_b0     <- data.frame( coefficient = paste0( "surv_b0_", rownames( coef( su_mod_yr )$Year ) ), 
+                       value         = coef  ( su_mod_yr)  $Year[,"(Intercept)"] )
+su_b1     <- data.frame( coefficient = paste0( "surv_b1_", rownames( coef( su_mod_yr )$Year ) ), 
+                       value         = coef  ( su_mod_yr)  $Year[,"logsize_t0"] )
+grow_b0   <- data.frame( coefficient = paste0( "grow_b0_", rownames( coef( gr_mod_yr2 )$Year ) ), 
+                       value         = coef  ( gr_mod_yr2) $Year[,"(Intercept)"] )
 grow_b1   <- data.frame( coefficient = paste0( "grow_b1_", rownames( coef( gr_mod_yr2 )$Year ) ), 
-                       value       = coef( gr_mod_yr2 )$Year[,"logsize_t0"] )
+                       value         = coef  ( gr_mod_yr2) $Year[,"logsize_t0"] )
 grow_b2   <- data.frame( coefficient = paste0( "grow_b2_", rownames( coef( gr_mod_yr2 )$Year ) ), 
-                       value       = coef( gr_mod_yr2 )$Year[,"logsize_t0_2"] )
-fecu_b0 <- data.frame( coefficient = paste0( "fecu_b0_", repr_pc_yr$Year ),
-                     value = repr_pc_yr$repr_percapita )
+                       value         = coef  ( gr_mod_yr2) $Year[,"logsize_t0_2"] )
+fecu_b0   <- data.frame( coefficient = paste0( "fecu_b0_", repr_pc_yr$Year ),
+                       value         = repr_pc_yr$repr_percapita )
 
 pars_var <- Reduce(function(...) rbind(...), list( su_b0, su_b1, grow_b0, grow_b1, grow_b2, fecu_b0 ) )
 
@@ -657,7 +663,6 @@ fy <- function( y, pars, h ){
 }
 
 
-#kernel####
                    
 kernel <- function( pars ) {
   
@@ -701,25 +706,24 @@ kernel <- function( pars ) {
 
 #lambda###
                    
-pars_mean <- pars_cons_wide
+pars_mean   <- pars_cons_wide
 
-lambda_ipm <- function( i ) {
+lambda_ipm  <- function( i ) {
   return( Re( eigen( kernel( i )$k_yx )$value[1] ) )
 }
 
-lam_mean <- lambda_ipm( pars_mean )
-                   
+lam_mean    <- lambda_ipm( pars_mean )
 lam_mean
 
 
-band_ger_yr <- c( 32:70 )
-pars_yr <- vector( mode = "list", length = length( bogr_yr ) )
+and_ger_yr     <- c( 32:70 )
+pars_yr         <- vector( mode = "list", length = length( and_ger_yr ) )
 extr_value_list <- function( x, field ) {
   return( as.numeric( x[paste0( field )] %>% unlist( ) ) )
 }
 
-prep_pars <- function( i ) {
-  yr_now    <- bogr_yr[i]
+prep_pars   <- function( i ) {
+  yr_now    <- and_ger_yr[i]
   pars_year <- list( surv_b0 = extr_value_list( pars_var_wide, paste( "surv_b0", yr_now, sep = "_" ) ),
                      surv_b1 = extr_value_list( pars_var_wide, paste( "surv_b1", yr_now, sep = "_" ) ),
                      grow_b0 = extr_value_list( pars_var_wide, paste( "grow_b0", yr_now, sep = "_" ) ),
@@ -758,7 +762,7 @@ year_kern <- function( i ) {
 
 kern_yr <- lapply( 1:length( and_ger_yr ), year_kern )
 
-all_mat <- array( dim = c( 200, 200, 13 ) )
+all_mat <- array( dim = c( 200, 200, 39 ) ) #39 years, not 13 rows
 
 for( i in 1:length( and_ger_yr ) ) {
   all_mat[,,i] <- as.matrix( kern_yr[[i]] )
@@ -773,17 +777,18 @@ lam_mean_kern
 
 
 # Population counts at time t0
-pop_counts_t0 <- and_ger_yr %>%
+pop_counts_t0 <- and_ger %>%
   group_by( Year, Quad ) %>%
   summarize( n_t0 = n( ) ) %>% 
   ungroup %>% 
   mutate( Year = Year + 1 )
 
 # Population counts at time t1
-pop_counts_t1 <- and_ger_yr %>%
+pop_counts_t1 <- and_ger %>%
   group_by( Year, Quad ) %>%
   summarize( n_t1 = n( ) ) %>% 
   ungroup 
+
 
 # Calculate observed population growth rates, 
 #   accounting for discontinued sampling!
@@ -893,7 +898,7 @@ proto_ipm_yr <- init_ipm( sim_gen   = "simple",
     # the first tells ipmr that we are using parameter sets
     uses_par_sets    = TRUE,
     # the second defines the values the yr suffix can assume
-    par_set_indices  = list( yr = 1997:2009 ),
+    par_set_indices  = list( yr = 32:70 ),
     evict_cor        = TRUE,
     evict_fun        = truncated_distributions( fun    = 'norm',
                                          target = 'g_yr' )
@@ -907,7 +912,7 @@ proto_ipm_yr <- init_ipm( sim_gen   = "simple",
     data_list        = all_pars,
     states           = list( c( 'size' ) ),
     uses_par_sets    = TRUE,
-    par_set_indices  = list( yr = 1997:2009 ),
+    par_set_indices  = list( yr = 32:70 ),
     evict_cor        = TRUE,
     evict_fun        = truncated_distributions( "norm", "r_d" )
   ) %>% 
@@ -943,7 +948,7 @@ lam_mean_ipmr <- lambda( ipmr_yr )
 lam_out <- data.frame( coefficient = names( lam_mean_ipmr ), 
                        value = lam_mean_ipmr )
 
-rownames( lam_out ) <- 1:13
+rownames( lam_out ) <- 1:39
 
 lam_out_wide <- as.list( pivot_wider( lam_out, names_from = "coefficient", values_from = "value" ) )
 
@@ -954,5 +959,6 @@ write.csv( lam_out_wide, "ks_ange/data/lambdas_yr.csv", row.names = F )
 
 
 #Populating the PADRINO database template
+# SKIP for now as I don't have all the relevant information.
 
 
