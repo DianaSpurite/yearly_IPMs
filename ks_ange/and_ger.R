@@ -368,6 +368,8 @@ gr_mod_yr3           <- lmer( logsize_t1 ~ logsize_t0 + logsize_t0_2 + logsize_t
 
 g_mods              <- c( gr_mod_yr, gr_mod_yr2, gr_mod_yr3 )
 
+table(grow_df$Year)
+
 AICtab( g_mods, weights = T )
 
 #dAIC  df weight
@@ -512,7 +514,7 @@ ggsave(filename = "ks_ange/results/recruit_pred.png", plot = recruit_pred,
 
 # 11. Exporting parameter estimates--------------------------------------------------
 
-#survival####
+# * survival####
 
 su_yr_r       <- data.frame( coefficient = paste0( "year_", rownames( coef( su_mod_yr )$Year ) ), 
                              value       = coef( su_mod_yr )$Year[,"(Intercept)"] )
@@ -524,7 +526,7 @@ surv_out_yr   <- Reduce( function(...) rbind(...), list( su_la_r, su_yr_r ) ) %>
 
 write.csv( surv_out_yr, "ks_ange/data//surv_pars.csv", row.names = F )
 
-#growth####
+# * growth####
 
 
 var_fe       <- data.frame( coefficient = names( coef( gr_var ) ),
@@ -546,7 +548,7 @@ grow_out_yr  <- Reduce( function(...) rbind(...), list( var_fe, la_re, la2_re, y
 
 write.csv( grow_out_yr, "ks_ange/data/grow_pars.csv", row.names = F )
 
-#recruitment####
+# * recruitment####
 
 rc_pc        <- data.frame( coefficient = paste0( "rec_pc_", repr_pc_yr$Year ),
                      value = repr_pc_yr$repr_percapita )
@@ -562,7 +564,7 @@ recr_out_yr  <- Reduce( function(...) rbind(...), list( rc_pc, rc_sz ) ) %>%
 write.csv( recr_out_yr, "ks_ange/data/recr_pars.csv", row.names = F )
                       
 
-#constant pars####
+# * constant pars####
 
 constants <- data.frame( coefficient = c( "recr_sz",
                                           "recr_sd",
@@ -601,7 +603,7 @@ pars_cons_wide <- as.list( pivot_wider( pars_cons, names_from = "coefficient", v
 
 write.csv( pars_cons_wide, "ks_ange/data/pars_cons.csv", row.names = F )
 
-#varying pars####
+# * varying pars####
                     
 su_b0     <- data.frame( coefficient = paste0( "surv_b0_", rownames( coef( su_mod_yr )$Year ) ), 
                        value         = coef  ( su_mod_yr)  $Year[,"(Intercept)"] )
@@ -622,9 +624,7 @@ pars_var_wide <- as.list( pivot_wider( pars_var, names_from = "coefficient", val
 
 write.csv( pars_var_wide, "ks_ange/data/pars_var.csv", row.names = F )
 
-# Building year specific IPM------------------------------------------------
-
-                   #From here edited in github (because TRAIN-OFFICE)
+# 12.  Building year specific IPM------------------------------------------------
 
 lmer( logsize_t1 ~ logsize_t0 + logsize_t0_2 + ( logsize_t0 | Year ), data = grow_df )
 
