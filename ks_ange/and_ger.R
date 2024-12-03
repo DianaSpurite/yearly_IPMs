@@ -18,54 +18,54 @@ library( tidyverse ) # ver 2.0.0
 library( writexl ) # ver 1.4.2
 library(boot)
 
-and_ger            <- read.csv( "ks_ange/ks_ange.csv" )
+and_ger <- read.csv( "ks_ange/ks_ange.csv" )
 
 #and_ger$logsize_t1 <- log( and_ger$size_tplus1 )
 
-and_ger            <- and_ger %>% 
-  mutate(logsize_t0 = log(basalArea_genet)) %>%
-  mutate(logsize_t1 = log(size_tplus1)) 
+and_ger <- and_ger %>% 
+           mutate(logsize_t0 = log(basalArea_genet)) %>%
+           mutate(logsize_t1 = log(size_tplus1)) 
 
-surv               <- and_ger %>% 
-  subset( !is.na( survives_tplus1 ) ) %>%
-  subset( basalArea_genet != 0 ) %>%
-  select( Quad, Year, trackID,
-          basalArea_genet, logsize_t0,logsize_t1,
-          survives_tplus1, size_tplus1 )
+surv    <- and_ger %>% 
+           subset( !is.na( survives_tplus1 ) ) %>%
+           subset( basalArea_genet != 0 ) %>%
+           select( Quad, Year, trackID,
+           basalArea_genet, logsize_t0,logsize_t1,
+           survives_tplus1, size_tplus1 )
 
 
-grow              <- and_ger %>% 
-  subset( basalArea_genet != 0) %>%
-  subset( size_tplus1 != 0) %>% 
-  select( Quad, Year, trackID,
-          basalArea_genet, logsize_t0,logsize_t1,
-          survives_tplus1, size_tplus1 )
+grow  <- and_ger %>% 
+         subset( basalArea_genet != 0) %>%
+         subset( size_tplus1 != 0) %>% 
+         select( Quad, Year, trackID,
+         basalArea_genet, logsize_t0,logsize_t1,
+         survives_tplus1, size_tplus1 )
 
 # prep for recruitment
-quad_df           <- and_ger %>%
-  group_by( Species, Quad, Year ) %>%
-  summarise( totPsize = sum( basalArea_genet ) ) %>%
-  ungroup
+quad_df <- and_ger %>%
+           group_by( Species, Quad, Year ) %>%
+           summarise( totPsize = sum( basalArea_genet ) ) %>%
+           ungroup
 
-group_df          <- quad_df %>%
-  group_by( Species, Year ) %>%
-  summarise( Gcov = mean( totPsize ) ) %>%
-  ungroup
+group_df <- quad_df %>%
+            group_by( Species, Year ) %>%
+            summarise( Gcov = mean( totPsize ) ) %>%
+            ungroup
 
-cover_df         <- left_join( quad_df, group_df ) %>%
-  mutate( Year = Year + 1 ) %>%
-  mutate( Year = as.integer( Year ) ) %>%
-  drop_na()
+cover_df <- left_join( quad_df, group_df ) %>%
+            mutate( Year = Year + 1 ) %>%
+            mutate( Year = as.integer( Year ) ) %>%
+            drop_na()
+
 #recruitment
+recr_df  <- and_ger %>%
+            group_by( Species, Quad, Year ) %>%
+            summarise( NRquad = sum( recruit, na.rm=T ) ) %>%
+            ungroup
 
-recr_df          <- and_ger %>%
-  group_by( Species, Quad, Year ) %>%
-  summarise( NRquad   = sum( recruit, na.rm=T ) ) %>%
-  ungroup
+recr     <- left_join( cover_df, recr_df ) %>% drop_na
 
-recr             <- left_join( cover_df, recr_df ) %>% drop_na
-
-write.csv( surv,  "ks_ange/data/survival_df.csv" )
+write.csv( surv, "ks_ange/data/survival_df.csv" )
 write.csv( grow, "ks_ange/data/growth_df.csv" )
 write.csv( recr, "ks_ange/data/recruitment_df.csv" )
 
@@ -74,9 +74,9 @@ write.csv( recr, "ks_ange/data/recruitment_df.csv" )
 
 
 and_ger_long          <- pivot_longer( and_ger, 
-                                       cols      = c( logsize_t0, logsize_t1 ), 
-                                       names_to  = "size", 
-                                       values_to = "size_value" )
+                         cols = c( logsize_t0, logsize_t1 ), 
+                         names_to = "size", 
+                         values_to = "size_value" )
 
 and_ger_long$size     <- as.factor( and_ger_long$size )
 and_ger_long$Year_fac <- as.factor( and_ger_long$Year )
@@ -86,33 +86,30 @@ names(size_labs)      <- c( "logsize_t0", "logsize_t1" )
 
 print(head(and_ger_long))
 
-plot <- and_ger_long %>% ggplot( aes( x = size_value ) ) +
-  geom_histogram( binwidth = 1 ) +
-  facet_wrap( ~ Year_fac,
-              ncol = 4, 
-              scales = "free_y",
+plot <- and_ger_long %>% 
+        ggplot( aes( x = size_value ) ) +
+        geom_histogram( binwidth = 1 ) +
+        facet_wrap( ~ Year_fac,
+                  ncol = 4, 
+                scales = "free_y",
               labeller = labeller( size = size_labs ) ) +
-  labs( x = "log( size )",
-        y = "Frequency" ) +
-  theme( 
-    strip.text.y = element_text( size = 8,
-                                 margin = margin( 0.5, 0.5, 0.5, 0.5,'mm' ) ),
-    strip.text.x = element_text( size = 8,
-                                 margin = margin( 0.5, 0.5, 0.5, 0.5, 'mm' ) ),
-    strip.switch.pad.wrap = unit( '0.5', unit = 'mm' ),
-    panel.spacing = unit( '0.5', unit = 'mm' ) ) +
-  
-  # strip.text.x.top = element_text( size = 5,
-  #                                       margin = margin(t = 0.1, 
-  #                                                       b = 0.1) ),
-  #      strip.background = element_rect( linewidth = 0.5),
-  #      axis.text        = element_text( size = 5)
-  # ) +
-  theme_bw()
+               labs( x = "log( size )",
+                     y = "Frequency" ) + theme( 
+          strip.text.y = element_text( 
+                  size = 8,
+                margin = margin( 0.5, 0.5, 0.5, 0.5,'mm' ) ),
+          strip.text.x = element_text( 
+                  size = 8,
+                margin = margin( 0.5, 0.5, 0.5, 0.5, 'mm' ) ),
+ strip.switch.pad.wrap = unit( '0.5', unit = 'mm' ),
+         panel.spacing = unit( '0.5', unit = 'mm' ) ) +
+            theme_bw()
+
 
 ggsave(filename = "ks_ange/results/histograms.png", 
-       plot = plot,
-       width = 6.3, height = 9)
+           plot = plot,
+          width = 6.3,
+         height = 9)
 
 # 2. Survival data by year #---------------------------------------------
 
@@ -160,148 +157,142 @@ surv_bin_yrs   <- lapply( 1:39, df_binned_prop_year, and_ger, 20,
                           logsize_t0, survives_tplus1, surv_yrs )
 
 surv_yr_pan_df <- bind_rows( surv_bin_yrs ) %>% 
-  mutate( transition = paste( paste0( Year ),
-                              substr( paste0( Year + 1 ), 3, 4 ), 
-                              sep = '-' ) ) %>% 
-  mutate( year = as.integer( Year - 31  ) )
+                  mutate( transition = paste( paste0( Year ),
+                  substr( paste0( Year + 1 ), 3, 4 ), 
+                  sep = '-' ) ) %>% 
+                  mutate( year = as.integer( Year - 31  ) )
 
 surv_yr_plot   <- ggplot ( data = surv_yr_pan_df, 
-                           aes( x = logsize_t0, 
-                                y = survives_tplus1 ) ) +
-  geom_point( alpha = 0.5,
-              pch = 16,
-              size = 1,
-              color = 'red' ) +
-  scale_y_continuous( breaks = c( 0.1, 0.5, 0.9 ) ) +
-  facet_wrap( .~ transition, 
-              ncol = 4 ) + 
-  theme_bw( ) +
-  theme( axis.text     = element_text( size = 8 ),
-         title         = element_text( size = 10 ),
-         strip.text.y  = element_text( size = 5,
-                                       margin = margin( 0.5, 0.5, 0.5, 0.5,  
-                                                        'mm' ) ),
-         strip.text.x  = element_text( size   = 5,
-                                       margin = margin( 0.5, 0.5, 0.5, 0.5, 
-                                                        'mm' ) ),
-         strip.switch.pad.wrap = unit( '0.5', unit = 'mm' ),
-         panel.spacing = unit( '0.5', unit = 'mm' ) ) +
-  labs( x = expression( 'log(size)'[t0] ),
-        y = expression( 'Survival to time t1' ) )
-
-
-# reoccurring warning message (in all the exercises):
-# "Removed 95 rows containing missing values or values outside the scale range (`geom_point()`)."
+                  aes( x = logsize_t0, 
+                       y = survives_tplus1 ) ) +
+                  geom_point( alpha = 0.5,
+                     pch = 16,
+                    size = 1,
+                   color = 'red' ) +
+                  scale_y_continuous( 
+                  breaks = c( 0.1, 0.5, 0.9 ) ) +
+                  facet_wrap( .~ transition, 
+                    ncol = 4 ) + 
+                  theme_bw( ) + theme( 
+               axis.text = element_text( size = 8 ),
+                   title = element_text( size = 10 ),
+            strip.text.y = element_text( size = 5,
+                  margin = margin( 0.5, 0.5, 0.5, 0.5,'mm' ) ),
+            strip.text.x = element_text( size   = 5,
+                  margin = margin( 0.5, 0.5, 0.5, 0.5, 'mm' ) ),
+   strip.switch.pad.wrap = unit( '0.5', unit = 'mm' ),
+           panel.spacing = unit( '0.5', unit = 'mm' ) ) +
+                 labs( x = expression( 'log(size)'[t0] ),
+                       y = expression( 'Survival to time t1' ) )
 
 
 ggsave(filename = "ks_ange/results/survival_binned_yr.png", 
-       plot = surv_yr_plot,                            # The plot object
-       width = 6.3,                              
-       height = 9,                              
-       dpi = 300)                           
-
+           plot = surv_yr_plot, 
+          width = 6.3,                              
+         height = 9,                              
+            dpi = 300)                           
 
 
 # 3. Growth data by year #---------------------------------------------
 
 grow_yr_pan_df <- grow %>%
-  mutate( transition = paste( paste0( Year ),
-                              substr( paste0( Year + 1 ), 3, 4 ),
-                              sep = '-' ) ) %>% 
-  mutate( year = as.integer( Year - 31 ) )
+                  mutate ( transition = paste( paste0( Year ),
+                  substr ( paste0( Year + 1 ), 3, 4 ),
+                             sep = '-' ) ) %>% 
+                  mutate (  year = as.integer( Year - 31 ) )
 
-plot           <- ggplot(data  = grow_yr_pan_df, aes( x = logsize_t0, y = log( size_tplus1 ) ) ) +
-  geom_point( alpha = 0.5,
-              pch = 16,
-              size = 0.7,
-              color = 'red' ) +
-  facet_wrap( .~ transition,  # split in panels
-              ncol = 4 ) + 
-  theme_bw( ) +
-  theme( axis.text = element_text( size = 8 ),
-         title = element_text( size = 10 ),
-         strip.text.y = element_text( size = 8,
-                                      margin = margin( 0.5, 0.5, 0.5, 0.5,'mm' ) ),
-         strip.text.x = element_text( size = 8,
-                                      margin = margin( 0.5, 0.5, 0.5, 0.5, 'mm' ) ),
-         strip.switch.pad.wrap = unit( '0.5', unit = 'mm' ),
-         panel.spacing = unit( '0.5', unit = 'mm' ) ) +
-  labs( x = expression( 'log( size )'[t0] ),
-        y = expression( 'log( size )'[t1] ) )
+plot           <- ggplot ( data  = grow_yr_pan_df, 
+                         ae  ( x = logsize_t0, 
+                               y = log( size_tplus1 ) ) ) +
+                  geom_point( alpha = 0.5,
+                                pch = 16,
+                               size = 0.7,
+                              color = 'red' ) +
+                  facet_wrap( .~ transition,  # split in panels
+                               ncol = 4 ) + 
+                  theme_bw( ) +  theme( 
+                          axis.text = element_text( size = 8 ),
+                              title = element_text( size = 10 ),
+                       strip.text.y = element_text( size = 8,
+                             margin = margin( 0.5, 0.5, 0.5, 0.5,'mm' ) ),
+                       strip.text.x = element_text( size = 8,
+                             margin = margin( 0.5, 0.5, 0.5, 0.5, 'mm' ) ),
+              strip.switch.pad.wrap = unit( '0.5', unit = 'mm' ),
+                      panel.spacing = unit( '0.5', unit = 'mm' ) ) +
+                            labs( x = expression( 'log( size )'[t0] ),
+                                  y = expression( 'log( size )'[t1] ) )
 
 ggsave(filename = "ks_ange/results/growth_yr.png", 
-       plot = plot,
-       width  = 6.3,                              
-       height = 9,                              
-       dpi = 300 )
+           plot = plot,
+         width  = 6.3,                              
+         height = 9,                              
+            dpi = 300 )
 
 
 # 4. Recruitment data by year #---------------------------------------------
 
 indiv_qd <- surv %>%
-  group_by( Quad ) %>%
-  count( Year ) %>% 
-  rename( n_adults = n ) %>% 
-  mutate( Year = Year + 1 )
+            group_by( Quad ) %>%
+            count( Year ) %>% 
+            rename( n_adults = n ) %>% 
+            mutate( Year = Year + 1 )
 
 repr_yr  <- indiv_qd %>% 
-  left_join( recr ) %>%
-  mutate( repr_pc = NRquad / n_adults ) %>% 
-  mutate( Year = Year - 1 ) %>% 
-  drop_na
+            left_join( recr ) %>%
+            mutate( repr_pc = NRquad / n_adults ) %>% 
+            mutate( Year = Year - 1 ) %>% 
+            drop_na
 
 ## Joining with `by = join_by(Quad, Year)`
 
-# png( 'results/and_ger_yr/recruit_yr.png', width = 10, height = 6, units = "in", res = 150 )
-
-plot <- repr_yr %>%
-  filter ( NRquad != max( repr_yr$NRquad ) ) %>% 
-  filter ( n_adults != max( repr_yr$n_adults ) ) %>% 
-  ggplot ( aes ( x  = n_adults, y = NRquad ) ) +
-  geom_point( alpha = 1,
-              pch  = 16,
-              size  = 1,
-              color  = 'red' ) +  
-  facet_wrap( .~ Year, 
-              ncol  = 4 )     + 
-  theme_bw( ) +
-  theme( axis.text  = element_text( size = 8 ),
-         title  = element_text( size = 10 ),
-         strip.text.y  = element_text( size = 8,
-                                       margin  = margin( 0.5, 0.5, 0.5, 0.5, 'mm' ) ),
-         strip.text.x  = element_text( size = 8,
-                                       margin  = margin( 0.5, 0.5, 0.5, 0.5, 'mm' ) ),
-         strip.switch.pad.wrap  = unit ( '0.5', unit = 'mm' ),
-         panel.spacing  = unit ( '0.5', unit = 'mm' ) ) +
-  labs( x  = expression( 'Number of adults '[ t0] ),
-        y  = expression( 'Number of recruits '[ t1] ) )
+plot   <- repr_yr %>%
+          filter ( NRquad != max( repr_yr$NRquad ) ) %>% 
+          filter ( n_adults != max( repr_yr$n_adults ) ) %>% 
+          ggplot ( aes ( x  = n_adults, y = NRquad ) ) +
+          geom_point( alpha = 1,
+                        pch = 16,
+                       size = 1,
+                      color = 'red' ) +  
+         facet_wrap( .~ Year, 
+                       ncol = 4 )     + 
+         theme_bw( ) + theme( 
+                  axis.text = element_text( size = 8 ),
+                      title = element_text( size = 10 ),
+               strip.text.y = element_text( size = 8,
+                     margin = margin( 0.5, 0.5, 0.5, 0.5, 'mm' ) ),
+               strip.text.x = element_text( size = 8,
+                     margin = margin( 0.5, 0.5, 0.5, 0.5, 'mm' ) ),
+      strip.switch.pad.wrap = unit ( '0.5', unit = 'mm' ),
+              panel.spacing = unit ( '0.5', unit = 'mm' ) ) +
+                    labs( x = expression( 'Number of adults '[ t0] ),
+                          y = expression( 'Number of recruits '[ t1] ) )
 
 
 ggsave(filename = "ks_ange/results/recruit_yr.png", 
-       plot = plot,
-       width = 6.3,
-       height = 9 )
+           plot = plot,
+          width = 6.3,
+         height = 9 )
 
 
 # 5. Recruitment histograms by year #---------------------------------------------
 
-recSize          <- and_ger %>% subset( recruit == 1)
+recSize <- and_ger %>% subset( recruit == 1)
 
 recSize$Year_fac <- as.factor( recSize$Year )
 
-plot              <- recSize %>% 
-  ggplot( aes( x = logsize_t0 ) ) +
-  geom_histogram( ) +
-  facet_wrap( Year_fac ~ ., 
-              scales = "free_y",
-              ncol   = 4 ) +
-  labs( x = expression('log( size )'[t0]),
-        y = "Frequency" )
+plot    <- recSize %>% 
+           ggplot( aes( x = logsize_t0 ) ) +
+           geom_histogram( ) +
+           facet_wrap( Year_fac ~ ., 
+           scales = "free_y",
+             ncol = 4 ) +
+          labs( x = expression('log( size )'[t0]),
+                y = "Frequency" )
 
 ggsave(filename = "ks_ange/results/recruit_histograms.png", 
-       plot = plot,
-       width = 6.3,
-       height= 9 )
+           plot = plot,
+          width = 6.3,
+          height= 9 )
 
 # Check if there are any records for Year 33
 table(recSize$Year)
@@ -322,38 +313,32 @@ surv_yr_plots  <- function( i ){
   surv_temp    <- as.data.frame( surv_bin_yrs[[i]] )
   x_temp       <- seq( min( surv_temp$logsize_t0, na.rm = T ), 
                        max( surv_temp$logsize_t0, na.rm = T ), 
-                       length.out = 100)
+                                             length.out = 100)
   pred_temp     <- boot::inv.logit( ranef_su[i,1] + ranef_su[i,2] * x_temp ) 
   pred_temp_df  <- data.frame( logarea = x_temp, survives_tplus1 = pred_temp )
   temp_plot     <- surv_temp %>% 
-    ggplot( ) +
-    geom_point( aes( x = logsize_t0, y = survives_tplus1 ) ) +
-    geom_line( data = pred_temp_df, 
-               aes( x = logarea,
-                    y = survives_tplus1 ),
-               color = 'red',
-               lwd   = 1  ) +
-    theme_bw() +
-    theme( axis.text  = element_text( size = 5 ),
-           title      = element_text( size = 5),
-           plot.title = element_text( size = 10,
-                                      hjust = 0.5,
-                                      margin = margin( 0.5, 
-                                                       0.5, 
-                                                       0.5, 
-                                                       0.5, 
-                                                       'mm' ) ),
-           plot.margin = margin( 0,0,0,0) ) +
-    labs( title = paste0( years_v[i] ),
-          x = expression( 'log( size )'[t0] ),
-          y = expression( 'Survival probability  '[ t1] ) )
-  
-  # if( i %in% c( 33:41, 43:51, 53:61, 63:70 ) ){
-  if( i %in% c(1:39)[!(c(1:39) %% 4) == 1] ){
-    temp_plot <- temp_plot + theme( axis.title.y = element_blank( ) )
-  }
-  
-  return(temp_plot)
+                   ggplot( ) +
+                   geom_point ( aes( x = logsize_t0,
+                                    y = survives_tplus1 ) ) +
+                   geom_line (   data = pred_temp_df, 
+                   aes (            x = logarea,
+                                    y = survives_tplus1 ),
+                                color = 'red',
+                                lwd   = 1  ) +
+                   theme_bw() theme( 
+                           axis.text  = element_text( size = 5 ),
+                                title = element_text( size = 5),
+                           plot.title = element_text( size = 10,
+                                hjust = 0.5,
+                               margin = margin( 0.5, 0.5, 0.5, 0.5, 'mm' ) ),
+                          plot.margin = margin( 0,0,0,0) ) +
+                          labs( title = paste0( years_v[i] ),
+                                    x = expression( 'log( size )'[t0] ),
+                                    y = expression( 'Survival probability  '[ t1] ) )
+                          if( i %in% c(1:39)[!(c(1:39) %% 4) == 1] ){
+                   temp_plot <- temp_plot + theme( 
+                         axis.title.y = element_blank( ) ) }
+                   return(temp_plot)
 }
 
 surv_yrs   <- lapply(1:39, surv_yr_plots)
@@ -361,56 +346,47 @@ surv_years <- wrap_plots(surv_yrs) + plot_layout(ncol = 4)
 
 
 ggsave(filename = "ks_ange/results/survival_pred.png", 
-       plot = surv_years, 
-       # width = 30,
-       # height = 24,
-       width  = 6.3,
-       height = 9,
-       dpi = 300)  
+           plot = surv_years, 
+         width  = 6.3,
+         height = 9,
+            dpi = 300)  
 
 
 # Growth model -----------------------------------------------------------------
 
 grow_df   <- grow %>% 
-  mutate( logsize_t0 = log( basalArea_genet ),
-          logsize_t1 = log( size_tplus1 ) )
+             mutate( logsize_t0 = log( basalArea_genet ),
+                     logsize_t1 = log( size_tplus1 ) )
 
 gr_mod_yr <- lmer( logsize_t1 ~ logsize_t0 + ( logsize_t0 | Year ), 
-                   data = grow_df )
+             data = grow_df )
 
 
 ranef_gr <- data.frame( coef( gr_mod_yr )[1] )
 
 grow_yr_plots <- function( i ){
-  temp_plot <- grow_df %>% 
-    filter( Year == i ) %>% ggplot( ) +
-    geom_point( aes( x = logsize_t0, 
-                     y = logsize_t1 ) ) +
-    geom_abline( aes( intercept = ranef_gr[which(rownames( ranef_gr ) == i ),1],
-                      slope = ranef_gr[which(rownames( ranef_gr ) == i ),2] ),
-                 color = "red",
-                 lwd   = 1 ) +
-    theme_bw() +
-    theme( axis.text  = element_text( size = 5 ),
-           title      = element_text( size = 8),
-           plot.title = element_text( size = 10,
-                                      hjust = 0.5,
-                                      margin = margin( 0.5, 
-                                                       0.5, 
-                                                       0.5, 
-                                                       0.5, 
-                                                       'mm' ) ),
-           plot.margin = margin(0,0,0,0,'mm') ) +
-    labs( title = paste0( i ),
-          x = expression( 'log( size ) '[ t0] ),
-          y = expression( 'log( size ) '[ t1] ) )
-  
-  # if( i %in% c( 33:41, 43:51, 53:61, 61:70 ) ){
-  if( i %in% c(32:71)[!(c(32:71) %% 4) == 0] ){
-    temp_plot <- temp_plot + theme( axis.title.y = element_blank( ) )
-  }
-  
-  return(temp_plot)
+                 temp_plot <- grow_df %>% 
+                 filter( Year == i ) %>% ggplot( ) +
+                 geom_point( aes( x = logsize_t0, 
+                                  y = logsize_t1 ) ) +
+                 geom_abline ( aes( 
+                   intercept = ranef_gr[which(rownames( ranef_gr ) == i ),1],
+                       slope = ranef_gr[which(rownames( ranef_gr ) == i ),2] ),
+                       color = "red",
+                         lwd = 1 ) +
+                  theme_bw() + theme( 
+                   axis.text = element_text( size = 5 ),
+                       title = element_text( size = 8),
+                  plot.title = element_text( size = 10,
+                                            hjust = 0.5,
+                      margin = margin( 0.5,  0.5, 0.5, 0.5, 'mm' ) ),
+                 plot.margin = margin(0,0,0,0,'mm') ) +
+                 labs( title = paste0( i ),
+                           x = expression( 'log( size ) '[ t0] ),
+                           y = expression( 'log( size ) '[ t1] ) )
+                 if( i %in% c(32:71)[!(c(32:71) %% 4) == 0] ){
+    temp_plot <- temp_plot + theme( axis.title.y = element_blank( ) )  }
+                 return(temp_plot)
 }
 
 
@@ -418,10 +394,10 @@ grow_yrs    <- lapply( 32:70, grow_yr_plots )
 grow_years  <- wrap_plots( grow_yrs ) + plot_layout( ncol = 4 )
 
 ggsave( filename = "ks_ange/results/grow_pred.png", 
-        plot = grow_years,
-        width  = 6.3,
-        height = 9,
-        dpi = 300) 
+            plot = grow_years,
+          width  = 6.3,
+          height = 9,
+             dpi = 300) 
 
 
 # 6. Quadratic & cubic term-----------------------------------------------------
