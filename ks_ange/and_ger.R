@@ -22,48 +22,48 @@ and_ger            <- read.csv( "ks_ange/ks_ange.csv" )
 #and_ger$logsize_t1 <- log( and_ger$size_tplus1 )
 
 and_ger            <- and_ger %>% 
-  mutate(logsize_t0 = log(basalArea_genet)) %>%
-  mutate(logsize_t1 = log(size_tplus1)) 
+                      mutate(logsize_t0 = log(basalArea_genet)) %>%
+                      mutate(logsize_t1 = log(size_tplus1)) 
 
 surv               <- subset( and_ger, !is.na( survives_tplus1 ) ) %>%
-  subset( basalArea_genet != 0 ) %>%
-  select( Quad, Year, trackID,
-          basalArea_genet, logsize_t0,logsize_t1,
-          survives_tplus1, size_tplus1 )
+                      subset( basalArea_genet != 0 ) %>%
+                      select( Quad, Year, trackID,
+                      basalArea_genet, logsize_t0,logsize_t1,
+                      survives_tplus1, size_tplus1 )
 
 
 grow              <- and_ger %>% 
-  subset( basalArea_genet != 0) %>%
-  subset( size_tplus1 != 0) %>% 
-  select( Quad, Year, trackID,
-          basalArea_genet, logsize_t0,logsize_t1,
-          survives_tplus1, size_tplus1 )
+                     subset( basalArea_genet != 0) %>%
+                     subset( size_tplus1 != 0) %>% 
+                     select( Quad, Year, trackID,
+                     basalArea_genet, logsize_t0,logsize_t1,
+                     survives_tplus1, size_tplus1 )
 
 #prep for recruitment
 
 quad_df           <- and_ger %>%
-  group_by( Species, Quad, Year ) %>%
-  summarise( totPsize = sum( basalArea_genet ) ) %>%
-  ungroup
+                     group_by( Species, Quad, Year ) %>%
+                     summarise( totPsize = sum( basalArea_genet ) ) %>%
+                     ungroup
 
 group_df          <- quad_df %>%
-  group_by( Species, Year ) %>%
-  summarise( Gcov = mean( totPsize ) ) %>%
-  ungroup
+                     group_by( Species, Year ) %>%
+                     summarise( Gcov = mean( totPsize ) ) %>%
+                     ungroup
 
 cover_df         <- left_join( quad_df, group_df ) %>%
-  mutate( year = Year + 1 ) %>%
-  mutate( year = as.integer( year ) ) %>%
-  drop_na()
+                    mutate( year = Year + 1 ) %>%
+                    mutate( year = as.integer( year ) ) %>%
+                    drop_na()
 #recruitment
 
 recr_df          <- and_ger %>%
-  group_by( Species, Quad, Year ) %>%
-  summarise( NRquad   = sum( recruit, na.rm=T ) ) %>%
-  ungroup
+                    group_by( Species, Quad, Year ) %>%
+                    summarise( NRquad = sum( recruit, na.rm=T ) ) %>%
+                    ungroup
 
 recr             <- left_join( cover_df, recr_df ) %>%
-  drop_na
+                    drop_na
 
 write.csv( surv,  "ks_ange/data/survival_df.csv" )
 write.csv( grow, "ks_ange/data/growth_df.csv" )
@@ -98,27 +98,20 @@ ggsave(filename = "ks_ange/results/histograms.png", plot = plot)
 
 df_binned_prop_year <- function( ii, df_in, n_bins, siz_var, rsp_var, years ){
   
-  # make sub-selection of data
-  df   <- subset( df_in, Year == years$Year[ii] )
-  
-  if( nrow( df ) == 0 ) return( NULL )
-  
-  size_var <- deparse( substitute( siz_var ) )
-  resp_var <- deparse( substitute( rsp_var ) )
-  
-  # binned survival probabilities
-  h    <- ( max(df[,size_var], na.rm = T ) - min( df[,size_var], na.rm = T ) ) / n_bins
-  lwr  <- min( df[,size_var], na.rm = T ) + ( h * c( 0:( n_bins - 1 ) ) )
-  upr  <- lwr + h
-  mid  <- lwr + ( 1/2 * h )
-  
-  binned_prop <- function( lwr_x, upr_x, response ){
-    
-   id  <- which( df[,size_var] > lwr_x & df[,size_var] < upr_x ) 
-   tmp <- df[id,]
-    
-    if( response == 'prob' ){   return( sum( tmp[,resp_var], na.rm = T ) / nrow( tmp ) ) }
-    if( response == 'n_size' ){ return( nrow( tmp ) ) }
+ 
+               df   <- subset( df_in, Year == years$Year[ii] )  # make sub-selection of data
+                       if( nrow( df ) == 0 ) return( NULL )
+           size_var <- deparse( substitute( siz_var ) )
+           resp_var <- deparse( substitute( rsp_var ) )
+               h    <- ( max(df[,size_var], na.rm = T ) - min( df[,size_var], na.rm = T ) ) / n_bins  # binned survival probabilities
+               lwr  <- min( df[,size_var], na.rm = T ) + ( h * c( 0:( n_bins - 1 ) ) )
+               upr  <- lwr + h
+               mid  <- lwr + ( 1/2 * h )
+        binned_prop <- function( lwr_x, upr_x, response ){
+                id  <- which( df[,size_var] > lwr_x & df[,size_var] < upr_x ) 
+                tmp <- df[id,]
+                       if( response == 'prob' ){   return( sum( tmp[,resp_var], na.rm = T ) / nrow( tmp ) ) }
+                       if( response == 'n_size' ){ return( nrow( tmp ) ) }
   }
   
 y_binned <- Map( binned_prop, lwr, upr, 'prob' ) %>% unlist
