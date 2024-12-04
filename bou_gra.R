@@ -341,7 +341,7 @@ surv_yr_plots  <- function( i ){
                          labs( title = paste0( years_v[i] ),
                                    x = expression( 'log( size )'[t0] ),
                                    y = expression( 'Survival probability'[ t1] ) )
-                                       if( i %in% c(1:39)[!(c(1:39) %% 4) == 1] ){
+                                       if( i %in% c(1:38)[!(c(1:38) %% 4) == 1] ){
                                          
      temp_plot <- temp_plot + theme( 
                   axis.title.y = element_blank( ) ) }
@@ -349,7 +349,7 @@ surv_yr_plots  <- function( i ){
 }
 
 surv_yrs   <- lapply(1:38, surv_yr_plots)
-surv_years <- wrap_plots(surv_yrs) + plot_layout(nrow = 4)
+surv_years <- wrap_plots(surv_yrs) + plot_layout(ncol = 4)
 
 
 ggsave(filename = "ks_bogr/results/survival_pred.png", 
@@ -391,7 +391,7 @@ grow_yr_plots <- function( i ){
             labs( title = paste0( i ),
                       x = expression( 'log( size ) '[ t0 ] ),
                       y = expression( 'log( size ) '[ t1 ] ) )
-                          if( i %in% c(32:71)[!(c(32:71) %% 4) == 0] ){
+                          if( i %in% c(34:71)[!(c(34:71) %% 4) == 0] ){
                             
     temp_plot <- temp_plot + 
                  theme( axis.title.y = element_blank( ) )  }
@@ -956,7 +956,7 @@ proj_pop <- function( i ) {
              sum( all_mat[,,i] %*% year_pop[[i]] )
 }
 
-projected_pop_ns  <- sapply( 1:38, proj_pop ) #double check if 1:13 or 1:39 when pulled
+projected_pop_ns  <- sapply( 1:38, proj_pop ) #double check if 1:13 or 1:38 when pulled
 
 pop_counts_update <- pop_counts %>% 
                      mutate ( proj_n_t1 = projected_pop_ns ) %>% 
@@ -995,7 +995,7 @@ proto_ipm_yr <- init_ipm( sim_gen = "simple",
                         data_list = all_pars,
                            states = list( c( 'size' ) ),
                     uses_par_sets = TRUE,
-                  par_set_indices = list( yr = 32:71 ),
+                  par_set_indices = list( yr = 34:71 ),
                         evict_cor = TRUE,
                         evict_fun = truncated_distributions( 
                               fun = 'norm',
@@ -1007,7 +1007,7 @@ proto_ipm_yr <- init_ipm( sim_gen = "simple",
                         data_list = all_pars,
                            states = list( c( 'size' ) ),
                     uses_par_sets = TRUE,
-                  par_set_indices = list( yr = 32:71 ),
+                  par_set_indices = list( yr = 34:71 ),
                         evict_cor = TRUE,
                         evict_fun = truncated_distributions( "norm", "r_d" ) ) %>% 
                define_impl(
