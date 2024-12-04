@@ -24,8 +24,8 @@ bou_cur  <- read.csv( "ks_bocu/ks_bocu.csv" )
 #bou_cur$logsize_t1 <- log( bou_cur$size_tplus1 )
 
 bou_cur  <- bou_cur %>% 
-            mutate(logsize_t0 = log(basalArea_genet)) %>%
-            mutate(logsize_t1 = log(size_tplus1)) 
+            mutate( logsize_t0 = log(basalArea_genet)) %>%
+            mutate( logsize_t1 = log(size_tplus1)) 
 
 surv     <- subset( bou_cur, !is.na( survives_tplus1 ) ) %>%
             subset( basalArea_genet != 0 ) %>%
@@ -71,15 +71,18 @@ recr    <- left_join( cover_df, recr_df ) %>%
            drop_na
 
 
-write.csv( surv,  "ks_bocu/data/survival_df.csv" )
-write.csv( grow, "ks_bocu/data/growth_df.csv" )
-write.csv( recr, "ks_bocu/data/recruitment_df.csv" )
+write.csv ( surv, "ks_bocu/data/survival_df.csv" )
+write.csv ( grow, "ks_bocu/data/growth_df.csv" )
+write.csv ( recr, "ks_bocu/data/recruitment_df.csv" )
 
 
 # 2. Plotting data by year #---------------------------------------------
 
 
-bou_cur_long          <- pivot_longer( bou_cur, cols = c( logsize_t0, logsize_t1 ), names_to = "size", values_to = "size_value" )
+bou_cur_long          <- pivot_longer( bou_cur, cols = 
+                         c( logsize_t0, logsize_t1 ),
+                         names_to = "size", 
+                         values_to = "size_value" )
 
 bou_cur_long$size     <- as.factor( bou_cur_long$size )
 bou_cur_long$Year_fac <- as.factor( bou_cur_long$Year )
@@ -89,15 +92,25 @@ names(size_labs)      <- c( "logsize_t0", "logsize_t1" )
 
 print(head(bou_cur_long))
 
-plot <- bou_cur_long %>% ggplot( aes( x = size_value ) ) +
-                         geom_histogram( binwidth = 1 ) +
-                         facet_wrap( ~ Year_fac, 
-                                     ncol = 4, 
-                                   scales = "free_y",
-                                 labeller = labeller( 
-                                     size = size_labs ) ) +
-                                  labs( x = "log( size )",
-                                        y = "Frequency" ) 
+plot <- bou_cur_long %>% 
+        ggplot( aes( x = size_value ) ) +
+        geom_histogram( binwidth = 1 ) +
+        facet_wrap( ~ Year_fac, 
+                  ncol = 4, 
+                scales = "free_y",
+              labeller = labeller( 
+                  size = size_labs ) ) +
+               labs( x = "log( size )",
+                     y = "Frequency" ) + theme( 
+          strip.text.y = element_text( 
+                  size = 8,
+                margin = margin( 0.5, 0.5, 0.5, 0.5,'mm' ) ),
+          strip.text.x = element_text( 
+                  size = 8,
+                margin = margin( 0.5, 0.5, 0.5, 0.5, 'mm' ) ),
+ strip.switch.pad.wrap = unit( '0.5', unit = 'mm' ),
+         panel.spacing = unit( '0.5', unit = 'mm' ) ) +
+                         theme_bw()
 
 
 ggsave(filename = "ks_bocu/results/histograms.png", plot = plot)
@@ -105,113 +118,127 @@ ggsave(filename = "ks_bocu/results/histograms.png", plot = plot)
 
 # 2. Survival data by year #---------------------------------------------
 
-df_binned_prop_year <- function( ii, df_in, n_bins, siz_var, rsp_var, years ){ # make sub-selection of data
-               df   <- subset( df_in, Year == years$Year[ii] )
-                   if( nrow( df ) == 0 ) return( NULL )
+df_binned_prop_year <- function( ii, df_in, n_bins, siz_var, rsp_var, years ){
+  
+                 df <- subset( df_in, Year == years$Year[ii] )
+                       if( nrow( df ) == 0 ) return( NULL )
+                 
            size_var <- deparse( substitute( siz_var ) )
            resp_var <- deparse( substitute( rsp_var ) )  # binned survival probabilities
-               h    <- ( max(df[,size_var], na.rm = T ) - min( df[,size_var], na.rm = T ) ) / n_bins
-               lwr  <- min( df[,size_var],  na.rm = T ) + ( h * c( 0:( n_bins - 1 ) ) )
-               upr  <- lwr + h
-               mid  <- lwr + ( 1/2 * h )
+           
+                  h <- ( max ( df [,size_var], na.rm = T ) - 
+                         min ( df [,size_var], na.rm = T ) ) / n_bins
+                  
+                lwr <-   min ( df [,size_var],  na.rm = T ) + ( h * c( 0:( n_bins - 1 ) ) )
+                upr <- lwr + h
+                mid <- lwr + ( 1/2 * h )
+                 
         binned_prop <- function( lwr_x, upr_x, response ){
-                id  <- which( df[,size_var] > lwr_x & df[,size_var] < upr_x ) 
+                 id <- which( df[,size_var] > lwr_x & df[,size_var] < upr_x ) 
+                 
                 tmp <- df[id,]
-                   if( response == 'prob' )  { return( sum( tmp[,resp_var], na.rm = T ) / nrow( tmp ) ) }
-                   if( response == 'n_size' ){ return( nrow( tmp ) ) }
+                       if( response == 'prob' )  { 
+                           return( sum( tmp[,resp_var], na.rm = T ) / nrow( tmp ) ) }
+                       if( response == 'n_size' ){ 
+                           return( nrow( tmp ) ) }
   }
-  
     
-y_binned <- Map( binned_prop, lwr, upr, 'prob' ) %>% unlist
-
-x_binned <- mid
-
-y_n_size <- Map( binned_prop, lwr, upr, 'n_size' ) %>% unlist  # output data frame
-            data.frame( xx  = x_binned, 
-                        yy  = y_binned,
-                        nn  = y_n_size ) %>% 
-            setNames( c( size_var, resp_var, 'n_size' ) ) %>% 
-            mutate( Year    = years$Year[ii] )
-  
+           y_binned <- Map( binned_prop, lwr, upr, 'prob' ) %>% unlist
+           x_binned <- mid
+           y_n_size <- Map( binned_prop, lwr, upr, 'n_size' ) %>% unlist  # output data frame
+                       data.frame( xx  = x_binned,
+                                   yy  = y_binned,
+                                   nn  = y_n_size ) %>%
+                       setNames( c ( size_var, resp_var, 'n_size' ) ) %>% 
+                       mutate( Year = years$Year[ii] )
 }
 
 surv_yrs       <- data.frame( Year = surv$Year %>% unique %>% sort )
 
-surv_bin_yrs   <- lapply( 1:39, df_binned_prop_year, bou_cur, 20, #what't the 20 stand for here?
+surv_bin_yrs   <- lapply( 1:38, df_binned_prop_year, bou_cur, 20,  #bin size (better if less, depending on date)
                           logsize_t0, survives_tplus1, surv_yrs )
 
 surv_yr_pan_df <- bind_rows( surv_bin_yrs ) %>% 
                   mutate( transition = 
-                  paste( paste0( Year ),
+                  paste ( paste0( Year ),
                   substr( paste0( Year + 1 ), 3, 4 ), 
-                           sep = '-' ) ) %>% 
+                  sep = '-' ) ) %>% 
                   mutate( year = as.integer( Year - 31  ) )
 
 surv_yr_plot   <- ggplot ( data = surv_yr_pan_df, 
-                  aes    ( x    = logsize_t0, 
-                           y    = survives_tplus1 ) ) +
+                        aes ( x = logsize_t0, 
+                              y = survives_tplus1 ) ) +
                   geom_point( alpha = 0.5,
-                                pch = 16,
-                               size = 1,
-                              color = 'red' ) +
-                 scale_y_continuous( breaks = c( 0.1, 0.5, 0.9 ) ) +
+                            pch = 16,
+                           size = 1,
+                          color = 'red' ) +
+                 scale_y_continuous(
+                         breaks = c( 0.1, 0.5, 0.9 ) ) +
                  facet_wrap( .~ transition, 
-                               nrow = 4 ) + theme_bw( ) +
-                 theme(   axis.text = element_text( size = 8 ),
-                              title = element_text( size = 10 ),
-                       strip.text.y = element_text( size = 5,
-                             margin = margin( 0.5, 0.5, 0.5, 0.5,  'mm' ) ),
-                       strip.text.x = element_text( size   = 5,
-                             margin = margin( 0.5, 0.5, 0.5, 0.5, 'mm' ) ),
-              strip.switch.pad.wrap = unit( '0.5', unit = 'mm' ),
-                      panel.spacing = unit( '0.5', unit = 'mm' ) ) +
-                            labs( x = expression( 'log(size)'[t0] ),
-                                  y = expression( 'Survival to time t1' ) )
+                           ncol = 4 ) +
+                 theme_bw( ) +theme( 
+                      axis.text = element_text( size = 8 ),
+                          title = element_text( size = 10 ),
+                   strip.text.y = element_text( size = 5,
+                         margin = margin( 0.5, 0.5, 0.5, 0.5,  'mm' ) ),
+                   strip.text.x = element_text( size   = 5,
+                         margin = margin( 0.5, 0.5, 0.5, 0.5, 'mm' ) ),
+          strip.switch.pad.wrap = unit ( '0.5', unit = 'mm' ),
+                  panel.spacing = unit ( '0.5', unit = 'mm' ) ) +
+                        labs( x = expression( 'log(size)'[t0] ),
+                              y = expression( 'Survival to time t1' ) )
 
 
-ggsave(filename = "ks_bocu/results/survival_binned_yr.png", plot = surv_yr_plot,
-          width = 10,                              
-         height = 6,                              
-            dpi = 300)                           
+ggsave(filename = "ks_bocu/results/survival_binned_yr.png", 
+           plot = surv_yr_plot,
+          width = 6.3,                              
+         height = 9,                              
+            dpi = 300)                         
 
 
 # 3. Growth data by year #---------------------------------------------
 
 grow_yr_pan_df <- grow %>%
-                  mutate( transition = paste( paste0( Year ),
+                  mutate( transition = 
+                  paste ( paste0( Year ),
                   substr( paste0( Year + 1 ), 3, 4 ),
                            sep = '-' ) ) %>% 
                   mutate( year = as.integer( Year - 31 ) )
 
 plot          <- ggplot(data = grow_yr_pan_df, 
-                 aes(      x = logsize_t0, 
+                       aes(x = logsize_t0, 
                            y = log( size_tplus1 ) ) ) +
                  geom_point( alpha = 0.5,
-                               pch = 16,
-                              size = 0.7,
-                             color = 'red' ) +
-                facet_wrap( .~ transition, nrow = 4 ) + 
-                theme_bw( ) +
-                theme( axis.text = element_text( size = 8 ),
-                           title = element_text( size = 10 ),
-                    strip.text.y = element_text( size = 8,
-                          margin = margin( 0.5, 0.5, 0.5, 0.5,'mm' ) ),
-                    strip.text.x = element_text( size = 8,
-                          margin = margin( 0.5, 0.5, 0.5, 0.5, 'mm' ) ),
-           strip.switch.pad.wrap = unit( '0.5', unit = 'mm' ),
-                   panel.spacing = unit( '0.5', unit = 'mm' ) ) +
-                         labs( x = expression( 'log( size )'[t0] ),
-                               y = expression( 'log( size )'[t1] ) )
+                         pch = 16,
+                        size = 0.7,
+                       color = 'red' ) +
+                facet_wrap( .~ transition,  # split in panels
+                        ncol = 4 ) +  
+                theme_bw( ) + theme( 
+                   axis.text = element_text( size = 8 ),
+                       title = element_text( size = 10 ),
+                strip.text.y = element_text( size = 8,
+                      margin = margin( 0.5, 0.5, 0.5, 0.5,'mm' ) ),
+                strip.text.x = element_text( size = 8,
+                      margin = margin( 0.5, 0.5, 0.5, 0.5, 'mm' ) ),
+       strip.switch.pad.wrap = unit( '0.5', unit = 'mm' ),
+               panel.spacing = unit( '0.5', unit = 'mm' ) ) +
+                     labs( x = expression( 'log( size )'[t0] ),
+                           y = expression( 'log( size )'[t1] ) )
 
 
-ggsave(filename = "ks_bocu/results/growth_yr.png", plot = plot)
+ggsave(filename = "ks_bocu/results/growth_yr.png", 
+           plot = plot,
+         width  = 6.3,                              
+         height = 9,                              
+            dpi = 300 )
 
 
 # 4. Recruitment data by year #---------------------------------------------
 
 indiv_qd <- surv %>%
             group_by( Quad ) %>%
-            count( Year ) %>% 
+            count ( Year ) %>% 
             rename( n_adults = n ) %>% 
             mutate( Year = Year + 1 )
 
@@ -222,49 +249,59 @@ repr_yr  <- indiv_qd %>%
             drop_na
 
 plot     <- repr_yr %>%
-            filter ( NRquad   != max( repr_yr$NRquad ) ) %>% 
-            filter ( n_adults != max( repr_yr$n_adults ) ) %>% 
-            ggplot ( aes ( x   = n_adults, y = NRquad ) ) +
-            geom_point( alpha  = 1,
-                          pch  = 16,
-                         size  = 1,
-                        color  = 'red' ) + 
+            filter( NRquad  != max( repr_yr$NRquad ) ) %>% 
+            filter(n_adults != max( repr_yr$n_adults ) ) %>% 
+            ggplot( aes (  x = n_adults, y = NRquad ) ) +
+            geom_point(alpha = 1,
+                         pch = 16,
+                        size = 1,
+                       color = 'red' ) + 
            facet_wrap(.~ Year, 
-                         nrow  = 4 )     + 
-           theme_bw( ) +
-           theme(   axis.text  = element_text( size = 8 ),
-                        title  = element_text( size = 10 ),
-                 strip.text.y  = element_text( size = 8,
-                       margin  = margin( 0.5, 0.5, 0.5, 0.5, 'mm' ) ),
-                 strip.text.x  = element_text( size = 8,
-                       margin  = margin( 0.5, 0.5, 0.5, 0.5, 'mm' ) ),
-        strip.switch.pad.wrap  = unit ( '0.5', unit = 'mm' ),
-                panel.spacing  = unit ( '0.5', unit = 'mm' ) ) +
-                      labs( x  = expression( 'Number of adults '[ t0] ),
-                            y  = expression( 'Number of recruits '[ t1] ) )
+                        ncol = 4 )     + 
+           theme_bw( ) + theme(   
+                   axis.text = element_text( size = 8 ),
+                       title = element_text( size = 10 ),
+                strip.text.y = element_text( size = 8,
+                      margin = margin( 0.5, 0.5, 0.5, 0.5, 'mm' ) ),
+                strip.text.x = element_text( size = 8,
+                      margin = margin( 0.5, 0.5, 0.5, 0.5, 'mm' ) ),
+       strip.switch.pad.wrap = unit ( '0.5', unit = 'mm' ),
+               panel.spacing = unit ( '0.5', unit = 'mm' ) ) +
+                     labs( x = expression( 'Number of adults '[ t0] ),
+                           y = expression( 'Number of recruits '[ t1] ) )
 
 
-ggsave(filename = "ks_bocu/results/recruit_yr.png", plot = plot)
-
+ggsave(filename = "ks_bocu/results/recruit_yr.png", 
+           plot = plot,
+          width = 6.3,
+         height = 9,
+            dpi = 300)
 
 # 5. Recruitment histograms by year #---------------------------------------------
 
 recSize          <- bou_cur %>% subset( recruit == 1)
 
+
+
 recSize$Year_fac <- as.factor( recSize$Year )
 
-plot            <- recSize %>% ggplot( aes( x = logsize_t0 ) ) +
-                   geom_histogram( ) +
-                   facet_wrap( Year_fac ~ ., 
-                   scales = "free_y",
-                     ncol = 4 ) +
-                   labs(x = expression('log( size )'[t0]),
-                        y = "Frequency" )
-
-
-ggsave(filename = "ks_bocu/results/recruit_histograms.png", plot = plot)
+plot             <- recSize %>% 
+                    ggplot( aes( x = logsize_t0 ) ) +
+                    geom_histogram( ) +
+                    facet_wrap( Year_fac ~ ., 
+                    scales = "free_y",
+                      ncol = 4 ) +
+                    labs(x = expression('log( size )'[t0]),
+                         y = "Frequency" )
 
 table(recSize$Year) # no record for the years 32 and 33
+
+
+ggsave(filename = "ks_bocu/results/recruit_histograms.png",
+           plot = plot,
+          width = 6.3,
+         height = 9,
+            dpi = 300)
 
 
 # 6. Fitting vital rate models
@@ -272,7 +309,8 @@ table(recSize$Year) # no record for the years 32 and 33
 
 surv_df        <- surv %>% mutate( logsize_t0 = log( basalArea_genet ) )
 
-su_mod_yr      <- glmer( survives_tplus1 ~ logsize_t0 + ( logsize_t0 | Year ), data = surv_df, family = binomial )
+su_mod_yr      <- glmer( survives_tplus1 ~ logsize_t0 + ( logsize_t0 | Year ), 
+                         data = surv_df, family = binomial )
 
 ranef_su       <- data.frame( coef( su_mod_yr )[1] )
 years_v        <- c( 34:71 )
@@ -282,34 +320,45 @@ surv_yr_plots  <- function( i ){
   x_temp       <- seq( min( surv_temp$logsize_t0, na.rm = T ), 
                        max( surv_temp$logsize_t0, na.rm = T ), 
                                              length.out = 100)
-  pred_temp     <- boot::inv.logit( ranef_su[i,1] + ranef_su[i,2] * x_temp ) 
-  pred_temp_df  <- data.frame( logarea = x_temp, survives_tplus1 = pred_temp )
-  temp_plot     <- surv_temp %>% ggplot( ) +
-                   geom_point( aes( x = logsize_t0, y = survives_tplus1 ) ) +
-                   geom_line (   data = pred_temp_df, 
-                   aes(             x = logarea,
-                                    y = survives_tplus1 ),
-                                color = 'red',
-                                lwd   = 1  ) +
-                  labs(         title = paste0( years_v[i] ),
-                                    x = expression( 'log( size )'[t0] ),
-                                    y = expression( 'Survival probability'[ t1] ) )
-                 if( i %in% c( 35:43, 45:53, 55:63, 65:71 ) ){ #This doesn't work this time
-    temp_plot <- temp_plot + theme( axis.title.y = element_blank( ) )
-  }
-                 return(temp_plot)
-}
+  
+pred_temp     <- boot::inv.logit( ranef_su[i,1] + ranef_su[i,2] * x_temp ) 
+pred_temp_df  <- data.frame( logarea = x_temp, survives_tplus1 = pred_temp )
+  
+temp_plot     <- surv_temp %>% 
+                 ggplot( ) +
+                 geom_point(aes(x = logsize_t0, 
+                                y = survives_tplus1 ) ) +
+                 geom_line ( data = pred_temp_df, 
+                            aes(x = logarea,
+                                y = survives_tplus1 ),
+                            color = 'red',
+                              lwd = 1  ) +
+                theme_bw() + theme( 
+                        axis.text = element_text( size = 5 ),
+                            title = element_text( size = 5),
+                       plot.title = element_text( size = 10,
+                            hjust = 0.5,
+                           margin = margin( 0.5, 0.5, 0.5, 0.5, 'mm' ) ),
+                      plot.margin = margin( 0,0,0,0) ) +
+                      labs( title = paste0( years_v[i] ),
+                                x = expression( 'log( size )'[t0] ),
+                                y = expression( 'Survival probability'[ t1] ) )
+                                    if( i %in% c(1:38)[!(c(1:38) %% 4) == 1] ){
+      
+        temp_plot <- temp_plot + theme( 
+                     axis.title.y = element_blank( ) ) }
+                     return(temp_plot)
+}                                
 
 surv_yrs   <- lapply(1:38, surv_yr_plots)
-
-surv_years <- wrap_plots(surv_yrs) + plot_layout(nrow = 4)
+surv_years <- wrap_plots(surv_yrs) + plot_layout(ncol = 4)
 
 
 ggsave(filename = "ks_bocu/results/survival_pred.png", 
            plot = surv_years, 
-          width = 30,
-         height = 24,
-            dpi = 300)  
+          width = 6.3,
+         height = 9,
+            dpi = 300)    
 
 
 #### Growth model####------------------------------------------------
@@ -320,52 +369,63 @@ grow_df   <- grow %>%
 
 gr_mod_yr <- lmer( logsize_t1 ~ logsize_t0 + ( logsize_t0 | Year ), data = grow_df )
 
-
-ranef_gr <- data.frame( coef( gr_mod_yr )[1] )
+ranef_gr  <- data.frame( coef( gr_mod_yr )[1] )
 
 grow_yr_plots <- function( i ){
-    temp_plot <- grow_df %>% filter( Year == i ) %>% ggplot( ) +
-                 geom_point( aes( x = logsize_t0, 
-                                  y = logsize_t1 ) ) +
+    temp_plot <- grow_df %>% 
+                 filter( Year == i ) %>% 
+                 ggplot( ) +
+                 geom_point( 
+                 aes( x = logsize_t0, 
+                      y = logsize_t1 ) ) +
                  geom_abline( aes( 
-                          intercept = ranef_gr[which(rownames( ranef_gr ) == i ),1],
-                              slope = ranef_gr[which(rownames( ranef_gr ) == i ),2] ),
-                              color = "red",
-                              lwd   = 1 ) +
-                        labs( title = paste0( i ),
-                                  x = expression( 'log( size ) '[ t0] ),
-                                  y = expression( 'log( size ) '[ t1] ) )
-                 if( i %in% c( 35:43, 45:53, 55:63, 65:71 ) ){
-    temp_plot <- temp_plot + theme( axis.title.y = element_blank( ) )
-  }
+              intercept = ranef_gr[which(rownames( ranef_gr ) == i ),1],
+                  slope = ranef_gr[which(rownames( ranef_gr ) == i ),2] ),
+                  color = "red",
+                  lwd   = 1 ) +
+                 theme_bw() + theme( 
+              axis.text = element_text( size = 5 ),
+                  title = element_text( size = 8),
+             plot.title = element_text( size = 10, 
+                  hjust = 0.5,
+                 margin = margin( 0.5,  0.5, 0.5, 0.5, 'mm' ) ),
+            plot.margin = margin(0,0,0,0,'mm') ) +
+            labs( title = paste0( i ),
+                      x = expression( 'log( size ) '[ t0 ] ),
+                      y = expression( 'log( size ) '[ t1 ] ) )
+                          if( i %in% c(34:71)[!(c(34:71) %% 4) == 0] ){
+                            
+    temp_plot <- temp_plot + 
+                 theme( axis.title.y = element_blank( ) ) }
                  return(temp_plot)
 }
 
+grow_yrs   <- lapply( 34:71, grow_yr_plots )
+grow_years <- wrap_plots( grow_yrs ) + plot_layout( ncol = 4 )
 
-grow_yrs    <- lapply( 34:71, grow_yr_plots )
-grow_years  <- wrap_plots( grow_yrs ) + plot_layout( nrow = 4 )
 
-
-ggsave(filename = "ks_bocu/results/grow_pred.png", plot = grow_years,
-          width = 30,
-         height = 20,
+ggsave(filename = "ks_bocu/results/grow_pred.png", 
+           plot = grow_years,
+          width = 6.3,
+         height = 9,
             dpi = 300) 
-
-# Year 32 and 33 doesn't have a much going on, so those are excluded
 
 
 # 6. Quadratic & cubic term---------------------------------------------------------
 
-
-grow_df    <- grow_df %>%  #Again - nothing relevant is going on in years 32 and 33, filtering those two out.
-              filter(Year>33)
+grow_df <- grow_df %>% filter(Year>33)
 
 
 grow_df$logsize_t0_2 <- grow_df$logsize_t0^2
 grow_df$logsize_t0_3 <- grow_df$logsize_t0^3
 
-gr_mod_yr2 <- lmer( logsize_t1 ~ logsize_t0 + logsize_t0_2 + ( logsize_t0 | Year ), data = grow_df )
-gr_mod_yr3 <- lmer( logsize_t1 ~ logsize_t0 + logsize_t0_2 + logsize_t0_3 + ( logsize_t0 | Year ), data = grow_df )
+gr_mod_yr2 <- lmer( logsize_t1 ~ logsize_t0 + logsize_t0_2 + 
+                  ( logsize_t0 | Year ), 
+                    data = grow_df )
+
+gr_mod_yr3 <- lmer( logsize_t1 ~ logsize_t0 + logsize_t0_2 + logsize_t0_3 + 
+                  ( logsize_t0 | Year ), 
+                     data = grow_df )
 
 table(grow_df$Year)
 
@@ -375,10 +435,10 @@ AICtab( g_mods, weights = T )
 
 #dAIC  df weight
 #model2   0.0 7  0.977 
-#model3   7.5 8  0.023 
+#model3   7.5 8  0 .023 
 #model1 298.7 6  <0.001
 
-# 7. Quadratic term growth modeling--------------------------------------------------------------
+# 7. Quadratic term growth modeling----------------------------------
 
 ranef_gr2      <- data.frame( coef( gr_mod_yr2 )[1] )
 
@@ -393,24 +453,32 @@ grow_yr_plots2 <- function( i ){
                   geom_function( fun = temp_f,
                                color = "orange",
                                lwd   = 1 ) +
-                  labs( title = paste0( i ),
-                            x = expression( 'log( size ) '[ t0] ),
-                            y = expression( 'log( size ) '[ t1] ) )
-                  if( i %in% c( 35:43, 45:53, 55:63, 65:71 ) ){
-     temp_plot <- temp_plot + theme( axis.title.y = element_blank( ) )
-  }
-                  return(temp_plot)
+                  theme_bw() + theme( 
+                           axis.text = element_text( size = 3 ),
+                               title = element_text( size = 5),
+                          plot.title = element_text( size = 10,
+                               hjust = 0.5,
+                              margin = margin( 0.5, 0.5, 0.5, 0.5, 'mm' ) ),
+                         plot.margin = margin(0,0,0,0) ) +
+                         labs( title = paste0( i ),
+                                   x = expression( 'log( size ) '[ t0] ),
+                                   y = expression( 'log( size ) '[ t1] ) )
+                                       if( i %in% c(34:71)[!(c(34:71) %% 4) == 0] ){
+                                         
+    temp_plot <- temp_plot + 
+                 theme( axis.title.y = 
+                 element_blank( ) )}
+                 return(temp_plot)
 }
 
-
 grow_yrs2    <- lapply( 34:71, grow_yr_plots2 )
-
-grow_years2  <- wrap_plots( grow_yrs2 ) + plot_layout( nrow = 4 )
+grow_years2  <- wrap_plots( grow_yrs2 ) + 
+                plot_layout( ncol = 4 )
 
 
 ggsave(filename = "ks_bocu/results/grow_pred_quadratic.png", plot = grow_years2,
-          width = 30,
-         height = 20,
+          width = 6.3,
+         height = 9,
             dpi = 300)
 
 
@@ -425,33 +493,43 @@ grow_yr_plots3 <- function( i ){
                   ranef_gr3[which(rownames( ranef_gr3 ) == i ),1] + 
                   ranef_gr3[which(rownames( ranef_gr3 ) == i ),2] * x + 
                   ranef_gr2[which(rownames( ranef_gr2 ) == i ),3] * x^2 
-     temp_plot <- grow_df %>% filter( Year == i ) %>% ggplot( ) +
+     temp_plot <- grow_df %>% 
+                  filter( Year == i ) %>% 
+                  ggplot( ) +
                   geom_point( aes( x = logsize_t0, 
                                    y = logsize_t1 ) ) +
                   geom_function( fun = temp_f,
                                color = "turquoise",
                                lwd   = 1 ) +
-                 labs( title = paste0( i ),
-                           x = expression( 'log( size ) '[ t0] ),
-                           y = expression( 'log( size ) '[ t1] ) )
-                 if( i %in% c( 33:41, 43:51, 53:61, 63:70 ) ){
-    temp_plot <- temp_plot + theme( axis.title.y = element_blank( ) )
-  }
+                  theme_bw() + theme( 
+                           axis.text = element_text( size = 3 ),
+                               title = element_text( size = 5),
+                          plot.title = element_text( size = 10,
+                               hjust = 0.5,
+                              margin = margin( 0.5, 0.5, 0.5, 0.5, 'mm' ) ),
+                         plot.margin = margin(0,0,0,0) ) +
+                         labs( title = paste0( i ),
+                                   x = expression( 'log( size ) '[ t0] ),
+                                   y = expression( 'log( size ) '[ t1] ) )
+                                       if( i %in% c(34:71)[!(c(34:71) %% 4) == 0] ){
+                                         
+    temp_plot <- temp_plot + 
+                 theme( axis.title.y = 
+                 element_blank( ) ) }
                  return(temp_plot)
 }
 
-
 grow_yrs3   <- lapply( 34:71, grow_yr_plots3 )
+grow_years3 <- wrap_plots( grow_yrs3 ) +
+               plot_layout( ncol = 4 )
 
-grow_years3 <- wrap_plots( grow_yrs3 ) + plot_layout( nrow = 4 )
 
-
-ggsave(filename = "ks_bocu/results/grow_pred_cubic.png", plot = grow_years3,
-          width = 30,
-         height = 20,
+ggsave(filename = "ks_bocu/results/grow_pred_cubic.png", 
+           plot = grow_years3,
+          width = 6.3,
+         height = 9,
             dpi = 300) 
 
-grow_years3
 
 # 9. Growth variance model------------------------------------------------------------------
 
@@ -472,12 +550,12 @@ recr_df       <- recr %>%
 rec_sums_df   <- recr_df %>% 
                  group_by ( Year ) %>% 
                  summarise( NRquad = sum( NRquad ),
-                 pred_mod          = sum( pred_mod ) ) %>% 
-                 ungroup  
+                          pred_mod = sum( pred_mod ) ) %>% 
+                          ungroup  
 
 
 indiv_yr     <- surv_df %>%
-                count( Year ) %>% 
+                count ( Year ) %>% 
                 rename( n_adults = n ) %>% 
                 mutate( Year = Year + 1 )
 
@@ -501,9 +579,10 @@ recruit_pred <- repr_pc_yr %>%
                                           y = "Predicted per capita recruitment" )
 
 
-ggsave(filename = "ks_bocu/results/recruit_pred.png", plot = recruit_pred,
-          width = 10,
-         height = 8,
+ggsave(filename = "ks_bocu/results/recruit_pred.png", 
+           plot = recruit_pred,
+          width = 6.3,
+         height = 9,
             dpi = 300) 
 
 
@@ -511,14 +590,19 @@ ggsave(filename = "ks_bocu/results/recruit_pred.png", plot = recruit_pred,
 
 # * survival####
 
-su_yr_r       <- data.frame( coefficient = paste0( "year", rownames( coef( su_mod_yr )$Year ) ), 
-                             value       = coef( su_mod_yr )$Year[,"(Intercept)"] )
+su_yr_r   <- data.frame( coefficient = paste0( "year", 
+             rownames  ( coef( su_mod_yr )$Year ) ), 
+             value = coef( su_mod_yr )$Year[,"(Intercept)"] )
 
-su_la_r       <- data.frame( coefficient = paste0( "logsize_t0", rownames( coef( su_mod_yr )$Year ) ), 
-                             value       = coef( su_mod_yr )$Year[,"logsize_t0"] )
+su_la_r   <- data.frame( coefficient = paste0( "logsize_t0",
+             rownames  ( coef( su_mod_yr )$Year ) ), 
+             value = coef( su_mod_yr )$Year[,"logsize_t0"] )
 
-surv_out_yr   <- Reduce    ( function(...) rbind(...), list( su_la_r, su_yr_r ) ) %>%
-                 mutate    ( coefficient = as.character( coefficient ) )
+surv_out_yr <- Reduce ( function(...) 
+               rbind  (...), 
+               list( su_la_r, 
+                     su_yr_r ) ) %>%
+               mutate ( coefficient = as.character( coefficient ) )
 
 
 write.csv( surv_out_yr, "ks_bocu/data//surv_pars.csv", row.names = F )
@@ -526,21 +610,30 @@ write.csv( surv_out_yr, "ks_bocu/data//surv_pars.csv", row.names = F )
 
 # * growth####
 
-var_fe       <- data.frame( coefficient = names( coef( gr_var ) ),
-                            value       = coef( gr_var ) )
+var_fe  <- data.frame( coefficient = 
+           names (coef ( gr_var ) ),
+           value = coef( gr_var ) )
 
-year_re      <- data.frame( coefficient = paste0( "year", rownames( coef( gr_mod_yr2 )$Year ) ), 
-                            value       = coef( gr_mod_yr2 )$Year[,"(Intercept)"] )
+year_re <- data.frame( coefficient = paste0( "year", 
+           rownames( coef( gr_mod_yr2 )$Year ) ), 
+             value = coef( gr_mod_yr2 )$Year[,"(Intercept)"] )
 
-la_re        <- data.frame( coefficient = paste0( "logsize_t0", rownames( coef( gr_mod_yr2 )$Year ) ), 
-                            value       = coef( gr_mod_yr2 )$Year[,"logsize_t0"] )
+la_re   <- data.frame( coefficient = paste0( "logsize_t0", 
+           rownames( coef( gr_mod_yr2 )$Year ) ), 
+             value = coef( gr_mod_yr2 )$Year[,"logsize_t0"] )
 
-la2_re       <- data.frame( coefficient = paste0( "logsize_t0_2", rownames( coef( gr_mod_yr2 )$Year ) ), 
-                            value       = coef( gr_mod_yr2 )$Year[,"logsize_t0_2"] )
+la2_re  <- data.frame( coefficient = paste0( "logsize_t0_2", 
+           rownames( coef( gr_mod_yr2 )$Year ) ), 
+             value = coef( gr_mod_yr2 )$Year[,"logsize_t0_2"] )
 
 
-grow_out_yr  <- Reduce    ( function(...) rbind(...), list( var_fe, la_re, la2_re, year_re ) ) %>%
-                mutate    ( coefficient = as.character( coefficient ) )
+grow_out_yr  <- Reduce( function(...) 
+                rbind (...), 
+                list  ( var_fe, 
+                       la_re, 
+                       la2_re, 
+                       year_re ) ) %>%
+                mutate ( coefficient = as.character( coefficient ) )
 
 
 write.csv( grow_out_yr, "ks_bocu/data/grow_pars.csv", row.names = F )
@@ -548,15 +641,17 @@ write.csv( grow_out_yr, "ks_bocu/data/grow_pars.csv", row.names = F )
 
 # * recruitment####
 
-rc_pc        <- data.frame( coefficient = paste0( "rec_pc_", repr_pc_yr$Year ),
-                                  value = repr_pc_yr$repr_percapita )
+rc_pc       <- data.frame( coefficient = 
+               paste0( "rec_pc_", repr_pc_yr$Year ),
+                          value = repr_pc_yr$repr_percapita )
 
-rc_sz        <- data.frame( coefficient = c( "rec_siz", "rec_sd" ),
-                                  value = c( mean( recSize$logsize_t0 ),
-                                         sd( recSize$logsize_t0 ) ) )
+rc_sz       <- data.frame( coefficient = c( "rec_siz", "rec_sd" ),
+                                 value = c( mean( recSize$logsize_t0 ),
+                                              sd( recSize$logsize_t0 ) ) )
 
-recr_out_yr  <- Reduce    ( function(...) rbind(...), list( rc_pc, rc_sz ) ) %>%
-                mutate    ( coefficient = as.character( coefficient ) )
+recr_out_yr <- Reduce ( function(...) 
+               rbind(...), list( rc_pc, rc_sz ) ) %>%
+               mutate ( coefficient = as.character( coefficient ) )
 
 
 write.csv( recr_out_yr, "ks_bocu/data/recr_pars.csv", row.names = F )
@@ -564,20 +659,20 @@ write.csv( recr_out_yr, "ks_bocu/data/recr_pars.csv", row.names = F )
 
 # * constant pars####
 
-constants <- data.frame( coefficient = c( "recr_sz",
-                                          "recr_sd",
-                                          "a",
-                                          "b",
-                                          "L",
-                                          "U",
-                                          "mat_size" ),
-                               value = c( mean( recSize$logsize_t0 ),  # are these four "logsize_t0" the same 
-                                        sd( recSize$logsize_t0 ),    # are these four "logsize_t0" the same 
-                                         as.numeric(coef(gr_var)[1]),
-                                         as.numeric(coef(gr_var)[2]),
-                                         grow_df$logsize_t0 %>% min,  # are these four "logsize_t0" the same 
-                                         grow_df$logsize_t0 %>% max,  # are these four "logsize_t0" the same 
-                                        200 ) )
+constants <- data.frame( coefficient = 
+                      c( "recr_sz",
+                         "recr_sd",
+                         "a",
+                         "b",
+                         "L",
+                         "U",
+                         "mat_size" ),
+              value = c( mean( recSize$logsize_t0 ),  
+                      sd( recSize$logsize_t0 ),  
+                      as.numeric(coef(gr_var)[1]),
+                      as.numeric(coef(gr_var)[2]),
+                      grow_df$logsize_t0 %>% min, 
+                      grow_df$logsize_t0 %>% max, 200 ) )
  
 surv_fe <- data.frame( coefficient = c( "surv_b0",
                                         "surv_b1" ),
@@ -591,13 +686,19 @@ grow_fe <- data.frame( coefficient = c( "grow_b0",
 rec_fe  <- data.frame( coefficient = "fecu_b0",
                              value = mean( repr_pc_yr$repr_percapita ) )
 
-pars_cons <- Reduce  ( function(...) rbind(...), list( surv_fe, grow_fe, rec_fe, constants ) ) %>%
-             mutate  ( coefficient = as.character( coefficient))
+pars_cons <- Reduce ( function(...) 
+             rbind  (...), 
+             list( surv_fe, 
+                   grow_fe, 
+                   rec_fe, 
+                   constants ) ) %>%
+             mutate ( coefficient = as.character( coefficient))
+             rownames( pars_cons ) <- 1:13
 
-
-rownames( pars_cons ) <- 1:13 #this stays 13
-
-pars_cons_wide <- as.list( pivot_wider( pars_cons, names_from = "coefficient", values_from = "value" ) )
+pars_cons_wide <- as.list( 
+                  pivot_wider( pars_cons, 
+                  names_from = "coefficient", 
+                  values_from = "value" ) )
 
 
 write.csv( pars_cons_wide, "ks_bocu/data/pars_cons.csv", row.names = F )
@@ -605,22 +706,48 @@ write.csv( pars_cons_wide, "ks_bocu/data/pars_cons.csv", row.names = F )
 
 # * varying pars####
 
-su_b0     <- data.frame( coefficient = paste0( "surv_b0_", rownames( coef( su_mod_yr )$Year ) ), 
-                               value = coef  ( su_mod_yr)  $Year[,"(Intercept)"] )
-su_b1     <- data.frame( coefficient = paste0( "surv_b1_", rownames( coef( su_mod_yr )$Year ) ), 
-                               value = coef  ( su_mod_yr)  $Year[,"logsize_t0"] )
-grow_b0   <- data.frame( coefficient = paste0( "grow_b0_", rownames( coef( gr_mod_yr2 )$Year ) ), 
-                               value = coef  ( gr_mod_yr2) $Year[,"(Intercept)"] )
-grow_b1   <- data.frame( coefficient = paste0( "grow_b1_", rownames( coef( gr_mod_yr2 )$Year ) ), 
-                               value = coef  ( gr_mod_yr2) $Year[,"logsize_t0"] )
-grow_b2   <- data.frame( coefficient = paste0( "grow_b2_", rownames( coef( gr_mod_yr2 )$Year ) ), 
-                               value = coef  ( gr_mod_yr2) $Year[,"logsize_t0_2"] )
-fecu_b0   <- data.frame( coefficient = paste0( "fecu_b0_", repr_pc_yr$Year ),
-                               value = repr_pc_yr$repr_percapita )
+su_b0     <- data.frame( coefficient = 
+             paste0( "surv_b0_", 
+             rownames( coef ( su_mod_yr ) $Year ) ), 
+               value = coef ( su_mod_yr ) $Year[,"(Intercept)"] )
 
-pars_var  <- Reduce(function(...) rbind(...), list( su_b0, su_b1, grow_b0, grow_b1, grow_b2, fecu_b0 ) )
+su_b1     <- data.frame( coefficient = 
+             paste0( "surv_b1_", 
+             rownames( coef( su_mod_yr ) $Year ) ), 
+             value = coef  ( su_mod_yr ) $Year[,"logsize_t0"] )
 
-pars_var_wide <- as.list( pivot_wider( pars_var, names_from = "coefficient", values_from = "value" ) )
+grow_b0   <- data.frame( coefficient = 
+             paste0( "grow_b0_", 
+             rownames( coef( gr_mod_yr2 ) $Year ) ), 
+             value = coef  ( gr_mod_yr2 ) $Year[,"(Intercept)"] )
+
+grow_b1   <- data.frame( coefficient = 
+             paste0( "grow_b1_", 
+             rownames( coef( gr_mod_yr2 ) $Year ) ), 
+             value = coef  ( gr_mod_yr2 ) $Year[,"logsize_t0"] )
+
+grow_b2   <- data.frame( coefficient = 
+             paste0( "grow_b2_", 
+             rownames( coef( gr_mod_yr2 ) $Year ) ), 
+             value = coef  ( gr_mod_yr2 ) $Year[,"logsize_t0_2"] )
+
+fecu_b0   <- data.frame( coefficient = 
+             paste0( "fecu_b0_", repr_pc_yr$Year ),
+                         value = repr_pc_yr$repr_percapita )
+
+pars_var  <- Reduce(function(...) 
+             rbind(...),
+             list( su_b0,
+                   su_b1, 
+                   grow_b0, 
+                   grow_b1, 
+                   grow_b2, 
+                   fecu_b0 ) )
+
+pars_var_wide <- as.list( 
+                 pivot_wider( pars_var, 
+                 names_from = "coefficient", 
+                 values_from = "value" ) )
 
 
 write.csv( pars_var_wide, "ks_bocu/data/pars_var.csv", row.names = F )
@@ -663,12 +790,12 @@ f       <- n_recr * recr_y
 
 kernel  <- function( pars ) {
   
-      n <- pars$mat_siz
-      L <- pars$L
-      U <- pars$U
-      h <- ( U - L ) / n
-      b <- L + c( 0:n ) * h
-      y <- 0.5 * ( b[1:n] + b[2:( n + 1 )] )
+    n   <- pars$mat_siz
+    L   <- pars$L
+    U   <- pars$U
+    h   <- ( U - L ) / n
+    b   <- L + c( 0:n ) * h
+    y   <- 0.5 * ( b[1:n] + b[2:( n + 1 )] )
   
    Fmat <- matrix( 0, n, n )
  Fmat[] <- matrix( fy( y, pars, h ), n, n )
@@ -705,7 +832,7 @@ lambda_ipm <- function( i ) {
 
 lam_mean   <- lambda_ipm( pars_mean )
 lam_mean
-
+#1.092525
 
 and_ger_yr      <- c( 34:71 )
 pars_yr         <- vector( mode = "list", length = length( and_ger_yr ) )
@@ -750,7 +877,7 @@ year_kern  <- function( i ) {
 
 kern_yr    <- lapply( 1:length( and_ger_yr ), year_kern )
 
-all_mat    <- array( dim = c( 200, 200, 38 ) ) #38 years, not 13 rows
+all_mat    <- array( dim = c( 200, 200, 38 ) )
               
               for( i in 1:length( and_ger_yr ) ) {
               all_mat[,,i]  <- as.matrix( kern_yr[[i]] )
@@ -759,7 +886,6 @@ all_mat    <- array( dim = c( 200, 200, 38 ) ) #38 years, not 13 rows
 mean_kern     <- apply( all_mat, c( 1, 2 ), mean )
 
 lam_mean_kern <- Re( eigen( mean_kern )$value[1] )
-
 lam_mean_kern
 #1.085649
 
@@ -829,7 +955,7 @@ proj_pop   <- function( i ) {
               sum( all_mat[,,i] %*% year_pop[[i]] )
 }
 
-projected_pop_ns  <- sapply( 1:38, proj_pop ) #double check if 1:13 or 1:39 when pulled
+projected_pop_ns  <- sapply( 1:38, proj_pop )  
 
 pop_counts_update <- pop_counts %>% 
                      mutate( proj_n_t1 = projected_pop_ns ) %>% 
@@ -902,12 +1028,15 @@ lam_mean_ipmr <- lambda( ipmr_yr )
 
 
 
-lam_out       <- data.frame( coefficient = names( lam_mean_ipmr ), 
-                                   value = lam_mean_ipmr )
+lam_out       <- data.frame( coefficient = 
+                 names ( lam_mean_ipmr ), 
+                 value = lam_mean_ipmr )
 
 rownames( lam_out ) <- 1:38
 
-lam_out_wide <- as.list( pivot_wider( lam_out, names_from = "coefficient", values_from = "value" ) )
+lam_out_wide <- as.list( pivot_wider( lam_out, 
+                names_from = "coefficient", 
+                values_from = "value" ) )
 
 
 write.csv( lam_out_wide, "ks_bocu/data/lambdas_yr.csv", row.names = F )
