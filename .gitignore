@@ -1,9 +1,9 @@
-ks_bocu\results
-ks_bocu\data
-ks_bogr\results
-ks_bogr\data
-ks_ange\results
-ks_ange\data
+/ks_bocu/results
+/ks_bocu/data
+/ks_bogr/results
+/ks_bogr/data
+/ks_ange/results
+/ks_ange/data
 
 # History files
 .Rhistory
