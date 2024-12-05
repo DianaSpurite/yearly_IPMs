@@ -877,7 +877,7 @@ year_kern  <- function( i ) {
 
 kern_yr    <- lapply( 1:length( bou_gra_yr ), year_kern )
 
-all_mat    <- array( dim = c( 200, 200, 38 ) ) #38 years, not 13 rows
+all_mat    <- array( dim = c( 200, 200, 38 ) )
 
               for( i in 1:length( bou_gra_yr ) ) {
                 
@@ -1039,6 +1039,7 @@ lam_out_wide <- as.list(
 
 
 write.csv( lam_out_wide, "ks_bogr/data/lambdas_yr.csv", row.names = F )
+
 
 
 #Populating the PADRINO database template
