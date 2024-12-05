@@ -490,7 +490,8 @@ grow_yr_plots3 <- function( i ){
         temp_f <- function( x ) 
                   ranef_gr3[which(rownames( ranef_gr3 ) == i ),1] + 
                   ranef_gr3[which(rownames( ranef_gr3 ) == i ),2] * x + 
-                  ranef_gr2[which(rownames( ranef_gr2 ) == i ),3] * x^2 
+                  ranef_gr3[which(rownames( ranef_gr2 ) == i ),3] * x^2 +
+                  ranef_gr3[which(rownames( ranef_gr2 ) == i ),4] * x^3
      temp_plot <- grow_df %>% 
                   filter( Year == i ) %>% 
                   ggplot( ) +
@@ -866,8 +867,8 @@ calc_lambda <- function( i ) {
                return( lam )
 }
 
-lambdas_yr  <- lapply( 1:length( bou_gra_yr ), calc_lambda )
-               names( lambdas_yr ) <- bou_gra_yr
+lambdas_yr          <- lapply( 1:length( bou_gra_yr ), calc_lambda )
+names( lambdas_yr ) <- bou_gra_yr
 
 #comparing lambdas
 
@@ -879,9 +880,10 @@ kern_yr    <- lapply( 1:length( bou_gra_yr ), year_kern )
 
 all_mat    <- array( dim = c( 200, 200, 38 ) )
 
-              for( i in 1:length( bou_gra_yr ) ) {
+for( i in 1:length( bou_gra_yr ) ) {
                 
-all_mat[,,i]  <- as.matrix( kern_yr[[i]] )
+  all_mat[,,i]  <- as.matrix( kern_yr[[i]] )
+
 }
 
 mean_kern     <- apply( all_mat, c( 1, 2 ), mean )
@@ -914,7 +916,7 @@ pop_counts <- left_join( pop_counts_t0,
                          n_t1 = sum( n_t1 ) ) %>% 
               ungroup %>% 
               mutate( obs_pgr = n_t1 / n_t0 ) %>% 
-              mutate(  lambda = lambdas_yr %>% unlist )
+              mutate( lambda  = lambdas_yr %>% unlist )
 
 lam_mean_yr      <- mean( pop_counts$lambda, na.rm = T )
 lam_mean_count   <- mean( pop_counts$obs_pgr, na.rm = T )
@@ -960,18 +962,18 @@ projected_pop_ns  <- sapply( 1:38, proj_pop ) #double check if 1:13 or 1:38 when
 
 pop_counts_update <- pop_counts %>% 
                      mutate ( proj_n_t1 = projected_pop_ns ) %>% 
-                     mutate ( proj_pgr  = proj_n_t1/n_t0 ) 
-                     ggplot ( pop_counts_update ) +
+                     mutate ( proj_pgr  = proj_n_t1/n_t0 ) %>% 
+                     ggplot (  ) +
                      geom_point( aes( x = lambda,
                                       y = obs_pgr ),
                                   color = 'green' ) +
-                    geom_point ( aes( x = proj_pgr,
-                                      y = obs_pgr ),
-                                  color = 'red' ) +
-             geom_abline( aes(intercept = 0,
-                                  slope = 1) ) +
-                                labs( x = "Modeled lambda",
-                                      y = "Observed population growth rate" )
+                      geom_point ( aes( x = proj_pgr,
+                                        y = obs_pgr ),
+                                    color = 'red' ) +
+                   geom_abline( aes(intercept = 0,
+                                        slope = 1) ) +
+                                      labs( x = "Modeled lambda",
+                                            y = "Observed population growth rate" )
 
 
 # Building year specific IPM with 'ipmr'
