@@ -489,10 +489,13 @@ ranef_gr3      <- data.frame( coef( gr_mod_yr3 )[1] )
 summary(gr_mod_yr3)
 
 grow_yr_plots3 <- function( i ){
+  
         temp_f <- function( x ) 
                   ranef_gr3[which(rownames( ranef_gr3 ) == i ),1] + 
                   ranef_gr3[which(rownames( ranef_gr3 ) == i ),2] * x + 
-                  ranef_gr2[which(rownames( ranef_gr2 ) == i ),3] * x^2 
+                  ranef_gr3[which(rownames( ranef_gr2 ) == i ),3] * x^2 +
+                  ranef_gr3[which(rownames( ranef_gr2 ) == i ),4] * x^3
+        
      temp_plot <- grow_df %>% 
                   filter( Year == i ) %>% 
                   ggplot( ) +
